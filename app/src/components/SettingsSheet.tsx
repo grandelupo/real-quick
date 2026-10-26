@@ -7,8 +7,7 @@ import { manageSubscriptions, restore } from '../iap';
 import { LINKS } from '../links';
 import { deleteAllPhotos } from '../photos';
 import { eraseAll, setSettings, setState, useStore } from '../store';
-import { INK_FAINT, INK_SOFT } from '../theme';
-import { Mascot } from '../art/Mascot';
+import { BLUSH, INK, INK_FAINT, INK_SOFT } from '../theme';
 import { Pressy, T } from '../ui/kit';
 import { Button, Field, SectionTitle, Segmented, Stepper, ToggleRow } from '../ui/controls';
 import { GoalCalculator } from './GoalCalculator';
@@ -133,7 +132,11 @@ export function SettingsSheet({ visible, onClose, onPaywall }: { visible: boolea
 
       <SectionTitle>{t('pro')}</SectionTitle>
       <View style={styles.pro}>
-        <Mascot size={52} pose={isPro ? 'wow' : 'happy'} />
+        <View style={[styles.proBadge, isPro && { backgroundColor: BLUSH }]}>
+          <T v="small" style={{ fontSize: 11, letterSpacing: 1 }} color={isPro ? INK : INK_SOFT}>
+            PRO
+          </T>
+        </View>
         <T v="body" style={{ flex: 1 }}>
           {isPro ? t('proActive') : t('proFree')}
         </T>
@@ -184,6 +187,7 @@ const styles = StyleSheet.create({
   done: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: INK_FAINT },
   link: { paddingVertical: 12 },
   pro: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  proBadge: { paddingHorizontal: 10, height: 28, borderRadius: 14, backgroundColor: INK_FAINT, alignItems: 'center', justifyContent: 'center' },
   rowLinks: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 12 },
   version: { textAlign: 'center', marginTop: 18, opacity: 0.7 },
 });

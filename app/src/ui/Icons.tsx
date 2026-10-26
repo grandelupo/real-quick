@@ -123,6 +123,23 @@ export function RetryIcon({ size = 24, color = INK, stroke = 2.2 }: P) {
   );
 }
 
+export function PencilIcon({ size = 24, color = INK, stroke = 2.1 }: P) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path d="M4.5 19.5l4.2-.9L19.3 8a1.8 1.8 0 0 0 0-2.6l-.7-.7a1.8 1.8 0 0 0-2.6 0L5.4 15.3l-.9 4.2ZM14.5 6.3l3.2 3.2" {...base(color, stroke)} />
+    </Svg>
+  );
+}
+
+export function PlateIcon({ size = 24, color = INK, stroke = 2.1 }: P) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Circle cx={12} cy={12} r={8.5} {...base(color, stroke)} />
+      <Circle cx={12} cy={12} r={4} {...base(color, stroke)} />
+    </Svg>
+  );
+}
+
 export function LockIcon({ size = 24, color = INK, stroke = 2.1 }: P) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">

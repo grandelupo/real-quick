@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, FlatList, Linking, StyleSheet, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { FadeIn, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring } from 'react-native-reanimated';
+import Animated, { FadeIn, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { addDays, dayKey, dayPages, isNight, msUntilLookChange, weekdayIndex, type Entry } from '../engine';
 import { dayLabel, t } from '../i18n';
 import { entriesFor, markSeen, useStore } from '../store';
-import { DAYS, INK, NIGHT_BG, PAPER, SHADOW, SPRING, SPRING_SOFT } from '../theme';
+import { DAYS, INK, NIGHT_BG, SHADOW_SM, SURFACE } from '../theme';
 import { DayPage } from '../components/DayPage';
 import { BAR_HEIGHT, CaptureBar, type CaptureHandle } from '../components/CaptureBar';
 import { SideNotes } from '../components/SideNotes';
@@ -17,6 +17,7 @@ import { Paywall } from '../components/Paywall';
 import { ShareCardHost, type ShareHandle } from '../components/Share';
 import { Toast, useToast } from '../components/Toast';
 import { CogIcon, NotesIcon, ShareIcon } from '../ui/Icons';
+import { TIMING } from '../ui/motion';
 import { Pressy, T, haptic } from '../ui/kit';
 
 /** Ticks at midnight and at the day/night boundaries so the look follows the clock. */
@@ -109,7 +110,7 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   const panelW = Math.min(width * 0.9, 440);
   const setOpen = useCallback(
     (open: boolean) => {
-      notes.value = withSpring(open ? 1 : 0, SPRING);
+      notes.value = withTiming(open ? 1 : 0, TIMING);
       setNotesOpen(open);
       if (open) markSeen('notes');
     },
@@ -126,7 +127,7 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
     })
     .onEnd((e) => {
       const open = e.velocityX < -500 || (e.velocityX < 500 && notes.value > 0.5);
-      notes.value = withSpring(open ? 1 : 0, SPRING);
+      notes.value = withTiming(open ? 1 : 0, TIMING);
       runOnJS(setNotesOpen)(open);
       if (open) runOnJS(markSeen)('notes');
     });
@@ -151,39 +152,14 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
     }
   };
 
-  // --- the TikTok nudge: show the two gestures until they have been used --
-  // The page itself dips to reveal a sliver of yesterday; the food list peeks
-  // in from the right. Each plays after a quiet moment, a few times per launch.
-  const [peeks, setPeeks] = useState(0);
-  const dip = useSharedValue(0);
-  const dipStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: dip.value }],
-  }));
   // What sits above today's page (and behind iOS overscroll): the day before.
   const above = pages[index + 1] ?? addDays(viewing, -1);
   const aboveBg = night ? NIGHT_BG : DAYS[weekdayIndex(above)].bg;
-  useEffect(() => {
-    const idle = !sheetsOpen && !notesOpen && appActive && index === 0;
-    const want = !seen.scroll ? 'scroll' : !seen.notes ? 'notes' : null;
-    if (!idle || !want || peeks >= 3) return;
-    const id = setTimeout(
-      () => {
-        if (want === 'scroll') {
-          // Dip the whole pager so a band of the day above shows, then settle.
-          dip.value = withSequence(withSpring(72, SPRING_SOFT), withDelay(380, withSpring(0, SPRING)));
-        } else {
-          notes.value = withSequence(withSpring(0.16, SPRING), withDelay(650, withSpring(0, SPRING)));
-        }
-        setPeeks((n) => n + 1);
-      },
-      peeks === 0 ? 2200 : 9000,
-    );
-    return () => clearTimeout(id);
-  }, [seen, sheetsOpen, notesOpen, appActive, index, peeks, notes, dip]);
 
   const viewingEntries = useMemo(() => entriesFor(viewing, entries), [viewing, entries]);
   const bottomReserve = Math.max(insets.bottom, 12) + BAR_HEIGHT + 18;
 
+  // Quiet hints for the two gestures, until each has been used once.
   const hintFor = (day: string): { text: string; dir: 'up' | 'left' } | undefined => {
     if (day !== today) return undefined;
     if (!seen.scroll) return { text: t('scrollHint'), dir: 'up' };
@@ -196,51 +172,49 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
       <StatusBar style="dark" />
       <GestureDetector gesture={pan}>
         <View style={StyleSheet.absoluteFill}>
-          <Animated.View style={[StyleSheet.absoluteFill, dipStyle]}>
-            <FlatList
-              ref={list}
-              data={pages}
-              inverted
-              pagingEnabled
-              showsVerticalScrollIndicator={false}
-              keyExtractor={(d) => d}
-              getItemLayout={(_, i) => ({
-                length: height,
-                offset: height * i,
-                index: i,
-              })}
-              initialNumToRender={2}
-              windowSize={3}
-              maxToRenderPerBatch={2}
-              onMomentumScrollEnd={onScrollEnd}
-              onScroll={onScrollEnd}
-              scrollEventThrottle={64}
-              decelerationRate="fast"
-              renderItem={({ item, index: i }) => (
-                <DayPage
-                  day={item}
-                  label={dayLabel(item, today, yesterday)}
-                  width={width}
-                  height={height}
-                  active={i === index && appActive && !sheetsOpen}
-                  night={night}
-                  entries={entriesFor(item, entries)}
-                  settings={settings}
-                  topInset={insets.top}
-                  bottomReserve={bottomReserve}
-                  hint={hintFor(item)}
-                />
-              )}
-            />
-          </Animated.View>
+          <FlatList
+            ref={list}
+            data={pages}
+            inverted
+            pagingEnabled
+            showsVerticalScrollIndicator={false}
+            keyExtractor={(d) => d}
+            getItemLayout={(_, i) => ({
+              length: height,
+              offset: height * i,
+              index: i,
+            })}
+            initialNumToRender={2}
+            windowSize={3}
+            maxToRenderPerBatch={2}
+            onMomentumScrollEnd={onScrollEnd}
+            onScroll={onScrollEnd}
+            scrollEventThrottle={64}
+            decelerationRate="fast"
+            renderItem={({ item, index: i }) => (
+              <DayPage
+                day={item}
+                label={dayLabel(item, today, yesterday)}
+                width={width}
+                height={height}
+                active={i === index && appActive && !sheetsOpen}
+                night={night}
+                entries={entriesFor(item, entries)}
+                settings={settings}
+                topInset={insets.top}
+                bottomReserve={bottomReserve}
+                hint={hintFor(item)}
+              />
+            )}
+          />
 
           {/* food-list tab on the right edge: a visible door for the swipe */}
           <Animated.View style={[styles.tab, { top: height * 0.42 }, tabStyle]}>
-            <Pressy onPress={() => setOpen(true)} style={[styles.tabBtn, SHADOW]} accessibilityLabel={t('notesHint')} testID="notes-tab">
+            <Pressy onPress={() => setOpen(true)} style={[styles.tabBtn, SHADOW_SM]} accessibilityLabel={t('notesHint')} testID="notes-tab">
               <NotesIcon size={22} />
               {viewingEntries.length > 0 && (
                 <Animated.View entering={FadeIn} style={styles.badge}>
-                  <T v="small" style={{ fontSize: 11, lineHeight: 14 }} color={PAPER}>
+                  <T v="small" style={{ fontSize: 11, lineHeight: 14 }} color={SURFACE}>
                     {viewingEntries.length}
                   </T>
                 </Animated.View>
@@ -278,15 +252,15 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
       {/* top-right: share + settings */}
       <Animated.View style={[styles.topRight, { top: insets.top + 8 }, chromeStyle]} pointerEvents={notesOpen ? 'none' : 'box-none'}>
         <Pressy
-          style={[styles.roundBtn, SHADOW]}
+          style={[styles.roundBtn, SHADOW_SM]}
           onPress={() => void shareRef.current?.share(viewing, dayLabel(viewing, today, yesterday), viewingEntries, settings)}
           accessibilityLabel={t('share')}
           testID="share-button"
         >
-          <ShareIcon size={22} />
+          <ShareIcon size={21} />
         </Pressy>
-        <Pressy style={[styles.roundBtn, SHADOW]} onPress={() => setSettingsOpen(true)} accessibilityLabel={t('settings')} testID="settings-button">
-          <CogIcon size={24} />
+        <Pressy style={[styles.roundBtn, SHADOW_SM]} onPress={() => setSettingsOpen(true)} accessibilityLabel={t('settings')} testID="settings-button">
+          <CogIcon size={23} />
         </Pressy>
       </Animated.View>
 
@@ -325,12 +299,10 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: INK },
   topRight: { position: 'absolute', right: 16, flexDirection: 'row', gap: 10 },
   roundBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: PAPER,
-    borderWidth: 2.5,
-    borderColor: INK,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: SURFACE,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -340,9 +312,7 @@ const styles = StyleSheet.create({
     height: 58,
     borderTopLeftRadius: 22,
     borderBottomLeftRadius: 22,
-    backgroundColor: PAPER,
-    borderWidth: 2.5,
-    borderColor: INK,
+    backgroundColor: SURFACE,
     alignItems: 'center',
     justifyContent: 'center',
     paddingRight: 6,

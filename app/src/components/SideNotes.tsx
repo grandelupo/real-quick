@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FlatList, Image, KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition, useAnimatedStyle, useSharedValue, withRepeat, withTiming, type SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,13 +6,13 @@ import { entryMacros, parseLocally, toUnit, type Entry, type Settings } from '..
 import { n, t, locale } from '../i18n';
 import { addEntry } from '../store';
 import { retry } from '../analyzer';
-import { BLUSH, FONT, INK, INK_FAINT, INK_SOFT, PAPER, SHADOW } from '../theme';
+import { BLUSH, FONT, INK, INK_FAINT, INK_HAIR, INK_SOFT, PAPER, SHADOW, SURFACE } from '../theme';
+import { EASE_OUT } from '../ui/motion';
 import { Pressy, T, haptic } from '../ui/kit';
-import { CloseIcon, LockIcon, RetryIcon, SendIcon } from '../ui/Icons';
-import { Mascot } from '../art/Mascot';
+import { CloseIcon, LockIcon, PencilIcon, PlateIcon, RetryIcon, SendIcon } from '../ui/Icons';
 
-// "Side notes": a sheet of lined paper that slides in from the right with
-// the day's food. Fix, remove, or just type what you ate.
+// The food list: a sheet that slides in from the right with the day's
+// entries. Fix, remove, or just type what you ate.
 
 function Shimmer() {
   const o = useSharedValue(0.35);
@@ -22,7 +22,7 @@ function Shimmer() {
   const s = useAnimatedStyle(() => ({ opacity: o.value }));
   return (
     <Animated.View style={s}>
-      <T v="label" color={INK_SOFT}>
+      <T v="small" color={INK_SOFT}>
         {t('counting')}
       </T>
     </Animated.View>
@@ -42,20 +42,17 @@ function time(ms: number) {
 
 function Row({ e, settings, onEdit, onPaywall }: { e: Entry; settings: Settings; onEdit(e: Entry): void; onPaywall(): void }) {
   const m = entryMacros(e);
-  const emoji = e.items[0]?.emoji ?? (e.source === 'text' ? '✏️' : '📸');
   return (
-    <Animated.View entering={FadeIn.duration(260)} exiting={FadeOut.duration(180)} layout={LinearTransition.springify().damping(20)}>
-      <Pressy style={styles.row} scaleTo={0.97} onPress={() => onEdit(e)} accessibilityLabel={`${entryTitle(e)}, ${n(toUnit(m.kcal, settings.unit))} ${settings.unit}`}>
+    <Animated.View entering={FadeIn.duration(260)} exiting={FadeOut.duration(180)} layout={LinearTransition.duration(260).easing(EASE_OUT)}>
+      <Pressy style={styles.row} scaleTo={0.985} onPress={() => onEdit(e)} accessibilityLabel={`${entryTitle(e)}, ${n(toUnit(m.kcal, settings.unit))} ${settings.unit}`}>
         {e.photoUri ? (
           <Image source={{ uri: e.photoUri }} style={styles.thumb} />
         ) : (
-          <View style={[styles.thumb, styles.emoji]}>
-            <T style={{ fontSize: 26, lineHeight: 32 }}>{emoji}</T>
-          </View>
+          <View style={[styles.thumb, styles.thumbTyped]}>{e.source === 'text' ? <PencilIcon size={20} color={INK_SOFT} /> : <PlateIcon size={22} color={INK_SOFT} />}</View>
         )}
         <View style={{ flex: 1 }}>
           <T v="label" numberOfLines={1}>
-            {e.status === 'ready' ? `${emoji}  ${entryTitle(e)}` : entryTitle(e)}
+            {entryTitle(e)}
           </T>
           {e.status === 'pending' && <Shimmer />}
           {e.status === 'ready' && (
@@ -122,9 +119,7 @@ export function SideNotes({
   const panelW = Math.min(width * 0.9, 440);
 
   const panel = useAnimatedStyle(() => ({ transform: [{ translateX: (1 - progress.value) * (panelW + 24) }] }));
-  const scrim = useAnimatedStyle(() => ({ opacity: progress.value * 0.35 }));
-
-  const lines = useMemo(() => Array.from({ length: 40 }, (_, i) => i), []);
+  const scrim = useAnimatedStyle(() => ({ opacity: progress.value * 0.3 }));
 
   const submit = () => {
     const v = text.trim();
@@ -146,14 +141,6 @@ export function SideNotes({
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: INK }, scrim]} pointerEvents="none" />
       <Animated.View style={[styles.panel, SHADOW, { width: panelW, paddingTop: insets.top + 12 }, panel]}>
-        {/* ruled paper */}
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          {lines.map((i) => (
-            <View key={i} style={[styles.rule, { top: insets.top + 96 + i * 34 }]} />
-          ))}
-          <View style={styles.margin} />
-        </View>
-        <View style={styles.tape} />
         <View style={styles.header}>
           <T v="title" style={{ flex: 1 }} numberOfLines={1} accessibilityRole="header">
             {title}
@@ -168,10 +155,13 @@ export function SideNotes({
             keyExtractor={(e) => e.id}
             contentContainerStyle={{ paddingBottom: 16, paddingTop: 8 }}
             renderItem={({ item }) => <Row e={item} settings={settings} onEdit={onEdit} onPaywall={onPaywall} />}
+            ItemSeparatorComponent={() => <View style={styles.sep} />}
             ListEmptyComponent={
               <View style={styles.empty}>
-                <Mascot size={96} pose="sleep" />
-                <T v="body" color={INK_SOFT} style={{ textAlign: 'center', marginTop: 10 }}>
+                <View style={styles.emptyMark}>
+                  <PlateIcon size={30} color={INK_SOFT} />
+                </View>
+                <T v="body" color={INK_SOFT} style={{ textAlign: 'center', marginTop: 14 }}>
                   {t('nothingYet')}
                 </T>
               </View>
@@ -191,7 +181,7 @@ export function SideNotes({
               accessibilityLabel={t('typeHere')}
             />
             <Pressy style={[styles.send, !text.trim() && { opacity: 0.4 }]} onPress={submit} disabled={!text.trim()} accessibilityLabel={t('add')}>
-              <SendIcon size={22} />
+              <SendIcon size={22} color={SURFACE} />
             </Pressy>
           </View>
         </KeyboardAvoidingView>
@@ -209,44 +199,28 @@ const styles = StyleSheet.create({
     backgroundColor: PAPER,
     borderTopLeftRadius: 30,
     borderBottomLeftRadius: 30,
-    borderLeftWidth: 2.5,
-    borderColor: INK,
     paddingHorizontal: 18,
     overflow: 'hidden',
   },
-  rule: { position: 'absolute', left: 0, right: 0, height: 1.5, backgroundColor: 'rgba(120,160,230,0.18)' },
-  margin: { position: 'absolute', left: 12, top: 0, bottom: 0, width: 1.5, backgroundColor: 'rgba(255,120,140,0.28)' },
-  tape: {
-    position: 'absolute',
-    top: 0,
-    alignSelf: 'center',
-    left: '38%',
-    width: 86,
-    height: 22,
-    backgroundColor: 'rgba(255,158,181,0.55)',
-    transform: [{ rotate: '-3deg' }],
-    borderBottomLeftRadius: 4,
-    borderBottomRightRadius: 4,
-  },
-  header: { flexDirection: 'row', alignItems: 'center', marginTop: 8, marginBottom: 6, paddingLeft: 8 },
+  header: { flexDirection: 'row', alignItems: 'center', marginTop: 8, marginBottom: 6, paddingLeft: 6 },
   closeBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: INK_FAINT },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 9, paddingHorizontal: 8, borderRadius: 18 },
-  thumb: { width: 50, height: 50, borderRadius: 14, borderWidth: 2, borderColor: INK, backgroundColor: '#FFFFFF' },
-  emoji: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF1F5' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 6, borderRadius: 18 },
+  sep: { height: 1, backgroundColor: INK_HAIR, marginLeft: 68 },
+  thumb: { width: 50, height: 50, borderRadius: 14, backgroundColor: SURFACE },
+  thumbTyped: { alignItems: 'center', justifyContent: 'center', backgroundColor: INK_HAIR },
   chip: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: INK_FAINT },
-  empty: { alignItems: 'center', paddingTop: 48, paddingHorizontal: 24 },
+  empty: { alignItems: 'center', paddingTop: 56, paddingHorizontal: 24 },
+  emptyMark: { width: 72, height: 72, borderRadius: 36, backgroundColor: INK_HAIR, alignItems: 'center', justifyContent: 'center' },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },
   input: {
     flex: 1,
     height: 52,
     borderRadius: 18,
-    borderWidth: 2.5,
-    borderColor: INK,
     paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: INK_HAIR,
     color: INK,
     fontFamily: FONT.body,
     fontSize: 16,
   },
-  send: { width: 52, height: 52, borderRadius: 18, borderWidth: 2.5, borderColor: INK, backgroundColor: BLUSH, alignItems: 'center', justifyContent: 'center' },
+  send: { width: 52, height: 52, borderRadius: 18, backgroundColor: INK, alignItems: 'center', justifyContent: 'center' },
 });

@@ -3,10 +3,10 @@ import { Platform, Share as RNShare, StyleSheet, View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { DayArt } from '../art/DayArt';
-import { Mascot } from '../art/Mascot';
+import { Hero } from '../art/Hero';
 import { dayMood, dayTotals, macroTargets, toUnit, weekdayIndex, type Entry, type Settings } from '../engine';
 import { n, t } from '../i18n';
-import { DAYS, INK, INK_SOFT, MACRO } from '../theme';
+import { DAYS, INK_SOFT, MACRO } from '../theme';
 import { T } from '../ui/kit';
 
 // "Show your partner how you're doing": a pastel card image of the day plus
@@ -36,12 +36,12 @@ function Card({ d }: { d: CardData }) {
   const goal = toUnit(d.settings.goalKcal, d.settings.unit);
   return (
     <View style={styles.card}>
-      <DayArt weekday={wd} width={W} height={H} night={false} active={false} />
+      <DayArt weekday={wd} width={W} height={H} night={false} />
       <View style={styles.inner}>
         <T v="h2">{d.label}</T>
-        <View style={{ alignItems: 'center', marginTop: 18 }}>
-          <Mascot size={92} pose={mood === 'nailed' ? 'wow' : 'happy'} />
-          <T v="hero" style={{ fontSize: 58, lineHeight: 64, marginTop: 6 }}>
+        <View style={{ alignItems: 'center', marginTop: 14 }}>
+          <Hero kind={DAYS[wd].hero} size={120} />
+          <T v="hero" style={{ fontSize: 58, lineHeight: 64, marginTop: 2 }}>
             {n(kcal)}
           </T>
           <T v="label" color={INK_SOFT}>
@@ -69,7 +69,7 @@ function Card({ d }: { d: CardData }) {
           ))}
         </View>
         <T v="small" color={INK_SOFT} style={{ textAlign: 'center', marginTop: 'auto' }}>
-          Real Quick · {DAYS[wd].name}
+          Real Quick
         </T>
       </View>
     </View>
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   offscreen: { position: 'absolute', left: -W * 2, top: 0 },
   card: { width: W, height: H, borderRadius: 32, overflow: 'hidden' },
   inner: { flex: 1, padding: 24 },
-  macros: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 18, backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: 20, padding: 12 },
+  macros: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 18, backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 20, padding: 12 },
   macro: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: INK },
+  dot: { width: 8, height: 8, borderRadius: 4 },
 });

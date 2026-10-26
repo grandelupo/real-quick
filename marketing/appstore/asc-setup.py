@@ -86,6 +86,16 @@ def upload(c: asc.Client, ops: list, data: bytes) -> None:
             sys.exit(f"upload failed: {r.status_code} {r.text[:200]}")
 
 
+def maybe(c: asc.Client, path: str) -> dict | None:
+    """GET a to-one relationship that may not exist yet (Apple answers 404, not null)."""
+    r = requests.get(asc.API + path, headers={"Authorization": "Bearer " + c.token()}, timeout=60)
+    if r.status_code == 404:
+        return None
+    if r.status_code >= 400:
+        sys.exit(f"GET {path} → {r.status_code}: {r.text[:300]}")
+    return r.json().get("data")
+
+
 def territories(c: asc.Client) -> list[str]:
     return [t["id"] for t in c.get_all("/territories", limit=200)]
 
@@ -100,8 +110,9 @@ def step_app(c, app, version) -> None:
         "primaryCategory": rel("appCategories", "HEALTH_AND_FITNESS"), "secondaryCategory": rel("appCategories", "FOOD_AND_DRINK")}})
     print("content rights, category Health & Fitness / Food & Drink")
 
-    sched = c.req("GET", f"/apps/{aid}/appPriceSchedule", params={"include": "manualPrices"})
-    if sched.get("included"):
+    # 404 here just means no schedule has been set yet.
+    sched = requests.get(f"{asc.API}/apps/{aid}/appPriceSchedule", headers={"Authorization": "Bearer " + c.token()}, params={"include": "manualPrices"}, timeout=60)
+    if sched.status_code == 200 and sched.json().get("included"):
         print("price schedule already set")
     else:
         free = next(p for p in c.get_all(f"/apps/{aid}/appPricePoints", **{"filter[territory]": "USA", "limit": 200})
@@ -151,7 +162,7 @@ def step_shots(c, app, version) -> None:
 def step_review(c, app, version) -> None:
     notes = fenced(section("App Review notes"))
     attrs = {**CONTACT, "demoAccountRequired": False, "notes": notes}
-    have = c.get(f"/appStoreVersions/{version['id']}/appStoreReviewDetail").get("data")
+    have = maybe(c, f"/appStoreVersions/{version['id']}/appStoreReviewDetail")
     if have:
         c.patch(f"/appStoreReviewDetails/{have['id']}", {"type": "appStoreReviewDetails", "id": have["id"], "attributes": attrs})
     else:
@@ -198,6 +209,15 @@ def step_subs(c, app, version) -> None:
                                                       "relationships": {"subscription": rel("subscriptions", sid)}})
         print(f"  localizations en-US, ja")
 
+
+        # Apple wants availability before prices (409 otherwise).
+        terrs = terrs or territories(c)
+        if not maybe(c, f"/subscriptions/{sid}/subscriptionAvailability"):
+            c.post("/subscriptionAvailabilities", {"type": "subscriptionAvailabilities", "attributes": {"availableInNewTerritories": True},
+                                                   "relationships": {"subscription": rel("subscriptions", sid),
+                                                                     "availableTerritories": {"data": [{"type": "territories", "id": t} for t in terrs]}}})
+            print(f"  availability: {len(terrs)} territories")
+
         if c.get(f"/subscriptions/{sid}/prices", limit=1).get("data"):
             print("  prices already set")
         else:
@@ -211,12 +231,6 @@ def step_subs(c, app, version) -> None:
             jpy = next((p for p in points if p.get("relationships", {}).get("territory", {}).get("data", {}).get("id") == "JPN"), None)
             print(f"  prices: {len(points)} territories, US ${spec['usd']}" + (f", Japan ¥{jpy['attributes']['customerPrice']}" if jpy else ""))
 
-        terrs = terrs or territories(c)
-        if not c.get(f"/subscriptions/{sid}/subscriptionAvailability").get("data"):
-            c.post("/subscriptionAvailabilities", {"type": "subscriptionAvailabilities", "attributes": {"availableInNewTerritories": True},
-                                                   "relationships": {"subscription": rel("subscriptions", sid),
-                                                                     "availableTerritories": {"data": [{"type": "territories", "id": t} for t in terrs]}}})
-            print(f"  availability: {len(terrs)} territories")
 
         if c.get(f"/subscriptions/{sid}/introductoryOffers", limit=1).get("data"):
             print("  free trial already set")
@@ -227,7 +241,12 @@ def step_subs(c, app, version) -> None:
                     "relationships": {"subscription": rel("subscriptions", sid), "territory": rel("territories", t)}})
             print(f"  1-week free trial in {len(terrs)} territories")
 
-        if c.get(f"/subscriptions/{sid}/appStoreReviewScreenshot").get("data"):
+        shot = maybe(c, f"/subscriptions/{sid}/appStoreReviewScreenshot")
+        if shot and (shot["attributes"].get("assetDeliveryState") or {}).get("state") == "FAILED":
+            c.delete(f"/subscriptionAppStoreReviewScreenshots/{shot['id']}")
+            print(f"  review screenshot had failed ({shot['attributes']['assetDeliveryState'].get('errors')}); re-uploading")
+            shot = None
+        if shot:
             print("  review screenshot already set")
         else:
             shot = c.post("/subscriptionAppStoreReviewScreenshots", {"type": "subscriptionAppStoreReviewScreenshots",
@@ -240,19 +259,26 @@ def step_subs(c, app, version) -> None:
 
 
 def step_age(c, app, version) -> None:
+    """Age rating as listing.md says: every descriptor NONE, no gambling, no chat,
+    no user content, no web access. The one honest Yes is health/wellness
+    topics (it is a calorie tracker); Apple computes the rating from that."""
     info = asc.app_info(c, app["id"])
     decl = c.get(f"/appInfos/{info['id']}/ageRatingDeclaration")["data"]
+    bools = {"gambling", "lootBox", "advertising", "ageAssurance", "messagingAndChat", "parentalControls", "healthOrWellnessTopics",
+             "userGeneratedContent", "socialMedia", "socialMediaAgeRestricted", "unrestrictedWebAccess", "gamblingAndContests", "seventeenPlus"}
+    enums = {"alcoholTobaccoOrDrugUseOrReferences", "contests", "gamblingSimulated", "medicalOrTreatmentInformation", "profanityOrCrudeHumor",
+             "sexualContentGraphicAndNudity", "sexualContentOrNudity", "horrorOrFearThemes", "matureOrSuggestiveThemes", "violenceCartoonOrFantasy",
+             "violenceRealisticProlongedGraphicOrSadistic", "violenceRealistic", "gunsOrOtherWeapons"}
     attrs = {}
-    for k, v in decl["attributes"].items():
-        if isinstance(v, bool) or v is None and k.startswith(("is", "unrestricted", "gambling", "lootBox", "advertising", "ageAssurance", "messaging",
-                                                                   "parentalControls", "healthOrWellness", "userGenerated")):
-            attrs[k] = False
-        elif isinstance(v, str) or v is None:
+    for k in decl["attributes"]:
+        if k in bools:
+            attrs[k] = k == "healthOrWellnessTopics"
+        elif k in enums:
             attrs[k] = "NONE"
-    # The AI only returns structured food results, never free-form text to the user (listing.md → Age rating).
-    attrs = {k: v for k, v in attrs.items() if k not in ("kidsAgeBand", "ageRatingOverride", "ageRatingOverrideV2", "koreaAgeRatingOverride", "developerAgeRatingInfoUrl")}
+    unknown = sorted(set(decl["attributes"]) - bools - enums)
     c.patch(f"/ageRatingDeclarations/{decl['id']}", {"type": "ageRatingDeclarations", "id": decl["id"], "attributes": attrs})
-    print("age rating: " + ", ".join(f"{k}={v}" for k, v in sorted(attrs.items())))
+    rating = c.get(f"/appInfos/{info['id']}")["data"]["attributes"].get("appStoreAgeRating")
+    print(f"age rating: {len(attrs)} answers set; left untouched: {', '.join(unknown)}; App Store rating now {rating}")
 
 
 STEPS = {"app": step_app, "meta": step_meta, "shots": step_shots, "review": step_review, "subs": step_subs, "age": step_age}

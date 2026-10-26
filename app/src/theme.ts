@@ -1,14 +1,19 @@
-// The Real Quick look: one pastel world per weekday, soft food doodles, a
-// dark-navy ink line (the house sticker outline), and a white night look.
-// The app is fully branded — it deliberately ignores the system light/dark
-// setting and follows the clock instead (see engine/days.ts isNight).
+// The Real Quick look: one calm pastel world per weekday, soft "clay"
+// surfaces (depth from gradients and shadows, never outlines), one soft-3D
+// object per day, and a quiet off-white night sheet. The app is fully
+// branded — it ignores the system light/dark setting and follows the clock
+// (see engine/days.ts isNight).
 
 export const INK = '#2B2350';
-export const INK_SOFT = 'rgba(43,35,80,0.62)';
-export const INK_FAINT = 'rgba(43,35,80,0.12)';
-export const PAPER = '#FFFDF7';
-export const NIGHT_BG = '#FBFAF8';
+export const INK_SOFT = 'rgba(43,35,80,0.60)';
+export const INK_FAINT = 'rgba(43,35,80,0.10)';
+export const INK_HAIR = 'rgba(43,35,80,0.07)';
+export const PAPER = '#FFFDF9';
+export const SURFACE = '#FFFFFF';
+export const NIGHT_BG = '#F7F5F2';
+export const NIGHT_DEEP = '#ECE8F3';
 export const BLUSH = '#FF9EB5';
+export const BLUSH_DEEP = '#F77F9F';
 
 export const MACRO = {
   protein: '#FF7F70',
@@ -16,55 +21,63 @@ export const MACRO = {
   fat: '#46BFA0',
 } as const;
 
-export type FoodKind =
-  | 'avocado' | 'pea' | 'kiwi'
-  | 'peach' | 'croissant' | 'carrot'
-  | 'grapes' | 'plum' | 'macaron'
-  | 'banana' | 'lemon' | 'egg'
-  | 'strawberry' | 'donut' | 'cherry'
-  | 'blueberry' | 'icecream' | 'cupcake'
-  | 'pizza' | 'tomato' | 'pear';
+/** The soft-3D object that belongs to a weekday (assets/art/<kind>.png). */
+export type HeroKind = 'avocado' | 'peach' | 'grapes' | 'lemon' | 'strawberry' | 'blueberries' | 'pear';
 
 export interface DayPalette {
   name: string;
+  /** Top and bottom of the page gradient. */
   bg: string;
   bgDeep: string;
-  /** Doodle fill colours, light → strong. */
-  art: [string, string, string];
-  /** Colour of the progress ring on this day. */
+  /** Colour of the soft light orbs floating in the background. */
+  glow: string;
+  /** Colour of the progress ring on this day (light → strong). */
   ring: string;
-  foods: [FoodKind, FoodKind, FoodKind];
+  ringSoft: string;
+  hero: HeroKind;
 }
 
 /** Index 0 = Monday. */
 export const DAYS: DayPalette[] = [
-  { name: 'mint', bg: '#CFF2E2', bgDeep: '#B5E9D2', art: ['#E9FAF2', '#9FDDBF', '#5FBF95'], ring: '#3FAF82', foods: ['avocado', 'pea', 'kiwi'] },
-  { name: 'peach', bg: '#FFDCC9', bgDeep: '#FFC9AE', art: ['#FFF1E8', '#FFB98F', '#F48F5E'], ring: '#F07E45', foods: ['peach', 'croissant', 'carrot'] },
-  { name: 'lavender', bg: '#E4DCFF', bgDeep: '#D3C7FF', art: ['#F4F0FF', '#BBA9F7', '#8F78E8'], ring: '#7C63E0', foods: ['grapes', 'plum', 'macaron'] },
-  { name: 'butter', bg: '#FFF1B8', bgDeep: '#FFE68A', art: ['#FFFAE0', '#FFDA5C', '#F2B630'], ring: '#E0A417', foods: ['banana', 'lemon', 'egg'] },
-  { name: 'bubblegum', bg: '#FFD8E6', bgDeep: '#FFC2D8', art: ['#FFF0F5', '#FF9FC1', '#F06A98'], ring: '#EC5A8C', foods: ['strawberry', 'donut', 'cherry'] },
-  { name: 'sky', bg: '#D3ECFF', bgDeep: '#BCE1FF', art: ['#EEF7FF', '#97CBF5', '#5C9FDB'], ring: '#3F8ED6', foods: ['blueberry', 'icecream', 'cupcake'] },
-  { name: 'matcha', bg: '#E2F0C6', bgDeep: '#D2E8A8', art: ['#F3F9E6', '#B6D77A', '#86B443'], ring: '#6FA22E', foods: ['pizza', 'tomato', 'pear'] },
+  { name: 'mint', bg: '#E3F6EC', bgDeep: '#C4ECD9', glow: '#FFFFFF', ring: '#3FAF82', ringSoft: '#8FD8B6', hero: 'avocado' },
+  { name: 'peach', bg: '#FFE9DC', bgDeep: '#FFD0B9', glow: '#FFF7F2', ring: '#F07E45', ringSoft: '#FFB88F', hero: 'peach' },
+  { name: 'lavender', bg: '#EEE9FF', bgDeep: '#D8CEFF', glow: '#FFFFFF', ring: '#7C63E0', ringSoft: '#B9A8F4', hero: 'grapes' },
+  { name: 'butter', bg: '#FFF6D6', bgDeep: '#FFEAA6', glow: '#FFFDF2', ring: '#E0A417', ringSoft: '#F6D374', hero: 'lemon' },
+  { name: 'bubblegum', bg: '#FFE6EF', bgDeep: '#FFCBDC', glow: '#FFF6F9', ring: '#EC5A8C', ringSoft: '#F9A4C2', hero: 'strawberry' },
+  { name: 'sky', bg: '#E4F2FF', bgDeep: '#C6E3FF', glow: '#FFFFFF', ring: '#3F8ED6', ringSoft: '#96C6F2', hero: 'blueberries' },
+  { name: 'matcha', bg: '#EEF5DB', bgDeep: '#DAEBB6', glow: '#FFFFFF', ring: '#6FA22E', ringSoft: '#B2D27D', hero: 'pear' },
 ];
 
 export const FONT = {
-  display: 'Fredoka-SemiBold',
-  displayBold: 'Fredoka-Bold',
-  displayMedium: 'Fredoka-Medium',
-  body: 'Nunito-SemiBold',
-  bodyBold: 'Nunito-ExtraBold',
+  display: 'PlusJakartaSans-Bold',
+  displayBold: 'PlusJakartaSans-ExtraBold',
+  displayMedium: 'PlusJakartaSans-SemiBold',
+  body: 'PlusJakartaSans-Medium',
+  bodyBold: 'PlusJakartaSans-SemiBold',
 } as const;
 
-export const RADIUS = { sm: 12, md: 20, lg: 28, pill: 999 } as const;
+export const RADIUS = { sm: 14, md: 20, lg: 28, xl: 34, pill: 999 } as const;
 
-/** Soft drop shadow that reads as "sticker lifted off the page". */
+/** Soft, wide shadow: a surface resting a little above the page. */
 export const SHADOW = {
   shadowColor: INK,
-  shadowOpacity: 0.14,
-  shadowRadius: 16,
-  shadowOffset: { width: 0, height: 8 },
-  elevation: 6,
+  shadowOpacity: 0.1,
+  shadowRadius: 22,
+  shadowOffset: { width: 0, height: 10 },
+  elevation: 8,
 } as const;
 
-export const SPRING = { damping: 18, stiffness: 220, mass: 0.9 } as const;
-export const SPRING_SOFT = { damping: 22, stiffness: 140, mass: 1 } as const;
+/** Tighter shadow for small controls. */
+export const SHADOW_SM = {
+  shadowColor: INK,
+  shadowOpacity: 0.09,
+  shadowRadius: 10,
+  shadowOffset: { width: 0, height: 4 },
+  elevation: 4,
+} as const;
+
+/** Motion: short ease-out curves, nothing overshoots. */
+export const DUR = { fast: 140, base: 260, slow: 420 } as const;
+
+/** Spread into a style to cover the parent (StyleSheet.absoluteFillObject is gone in RN 0.86). */
+export const ABS = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } as const;

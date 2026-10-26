@@ -1,23 +1,24 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, type PressableProps, type StyleProp, type TextProps, type TextStyle, type ViewStyle } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { FONT, INK } from '../theme';
 import { getState } from '../store';
+import { TIMING_FAST } from './motion';
 
-// Tiny shared kit: branded text and a squishy pressable. Everything tappable
-// in the app goes through Pressy so it springs and ticks the same way.
+// Tiny shared kit: branded text and a quiet pressable. Everything tappable
+// in the app goes through Pressy so it dims and ticks the same way.
 
 type Variant = 'hero' | 'title' | 'h2' | 'body' | 'label' | 'small' | 'button';
 
 const V: Record<Variant, TextStyle> = {
-  hero: { fontFamily: FONT.displayBold, fontSize: 64, lineHeight: 70, letterSpacing: -1 },
-  title: { fontFamily: FONT.display, fontSize: 30, lineHeight: 36 },
-  h2: { fontFamily: FONT.display, fontSize: 21, lineHeight: 26 },
-  body: { fontFamily: FONT.body, fontSize: 16, lineHeight: 22 },
+  hero: { fontFamily: FONT.displayBold, fontSize: 64, lineHeight: 70, letterSpacing: -2.2 },
+  title: { fontFamily: FONT.display, fontSize: 28, lineHeight: 34, letterSpacing: -0.6 },
+  h2: { fontFamily: FONT.display, fontSize: 19, lineHeight: 24, letterSpacing: -0.3 },
+  body: { fontFamily: FONT.body, fontSize: 16, lineHeight: 23 },
   label: { fontFamily: FONT.bodyBold, fontSize: 14, lineHeight: 18 },
   small: { fontFamily: FONT.body, fontSize: 13, lineHeight: 17 },
-  button: { fontFamily: FONT.display, fontSize: 18, lineHeight: 22 },
+  button: { fontFamily: FONT.displayMedium, fontSize: 17, lineHeight: 22 },
 };
 
 export function T({ v = 'body', style, color = INK, ...rest }: TextProps & { v?: Variant; color?: string }) {
@@ -39,26 +40,30 @@ export function haptic(kind: HapticKind = 'light') {
 
 const APressable = Animated.createAnimatedComponent(Pressable);
 
+/** Presses settle a touch smaller; release eases back. (Only scale, so a
+ * caller's own opacity — e.g. a hidden button — is left alone.) */
 export function Pressy({
   style,
   children,
   onPress,
   hapticKind = 'light',
-  scaleTo = 0.94,
+  scaleTo = 0.97,
   ...rest
 }: Omit<PressableProps, 'style'> & { style?: StyleProp<ViewStyle>; hapticKind?: HapticKind; scaleTo?: number; children?: React.ReactNode }) {
-  const s = useSharedValue(1);
-  const a = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
+  const down = useSharedValue(0);
+  const a = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 - (1 - scaleTo) * down.value }],
+  }));
   return (
     <APressable
       {...rest}
       accessibilityRole={rest.accessibilityRole ?? 'button'}
       onPressIn={(e) => {
-        s.value = withSpring(scaleTo, { damping: 15, stiffness: 400 });
+        down.value = withTiming(1, { duration: 90 });
         rest.onPressIn?.(e);
       }}
       onPressOut={(e) => {
-        s.value = withSpring(1, { damping: 12, stiffness: 300 });
+        down.value = withTiming(0, TIMING_FAST);
         rest.onPressOut?.(e);
       }}
       onPress={(e) => {

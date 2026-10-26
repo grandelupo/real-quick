@@ -10,69 +10,81 @@ Outcome line (onboarding hook, screenshot frame 1, website hero):
 
 ## 2. Emotion words
 
-**Light, playful, effortless.** Tracking food usually feels like homework;
-this should feel like taking a photo of something nice.
+**Calm, light, effortless.** Tracking food usually feels like homework; this
+should feel like glancing at a well-made object. Friendly, never childish.
 
-## 3. Palette
+## 3. Look: soft clay
+
+Depth comes from light, not lines. No outlines anywhere in the UI.
+
+- **Surfaces** are white, resting a little above the page: a wide soft
+  shadow (`SHADOW` in `theme.ts`), a hairline of light along the top edge.
+- **The clay button**: a gentle vertical gradient of the brand blush with a
+  light top edge and a shadow tinted in its own colour.
+- **The ring** is a soft tube: a faint inset track, a gradient arc from the
+  day's light tone to its strong one, a thin highlight along the arc, on a
+  white disc.
+- **Backgrounds**: the weekday pastel as a quiet vertical gradient with two
+  large soft light orbs. By night an off-white sheet with a pale moon and two
+  soft hills.
+- **One soft-3D object per day** (`app/assets/art/`, see
+  `marketing/brand-art/PROMPTS.md`): matte clay renders — avocado, peach,
+  grapes, lemon, strawberry, blueberries, pear — plus the camera for
+  onboarding, the paywall and the camera-off state. They are the only
+  illustration in the app; no emoji, no doodles, no faces.
+
+## 4. Palette
 
 | Role | Hex | Notes |
 |---|---|---|
-| Ink (every outline, all text) | `#2B2350` | House dark navy |
-| Brand blush (icon field, primary buttons) | `#FF9EB5` / glow `#FFE9EF → #FFB8CA` | The lively brand background |
-| Paper (sheets, cards) | `#FFFDF7` | Warm off-white |
-| Night sheet | `#FBFAF8` | 20:00–05:59 the world turns white with a line landscape |
-| Protein / Carbs / Fat (UI) | `#FF7F70` / `#FFB938` / `#46BFA0` | Fixed hue per macro, everywhere |
-| Pizza wedges (icon, mascot) | `#FF8E86` / `#FFC9AE` / `#FFE08A` | Pastel versions of the macro trio |
+| Ink (all text) | `#2B2350` | House dark navy; also the dark buttons |
+| Brand blush (clay button, accents) | `#FF9EB5` → `#F77F9F` | Button gradient `#FFB7C9 → #FF93AE` |
+| Paper (sheets) | `#FFFDF9` | Warm off-white |
+| Surface (cards, chips) | `#FFFFFF` | |
+| Night sheet | `#F7F5F2 → #ECE8F3` | 20:00–05:59 |
+| Protein / Carbs / Fat | `#FF7F70` / `#FFB938` / `#46BFA0` | Fixed hue per macro, everywhere |
 
 One pastel world per weekday (`app/src/theme.ts`):
 
-| Day | Background | Ring | Doodles |
+| Day | Gradient | Ring | Object |
 |---|---|---|---|
-| Mon — mint | `#CFF2E2` | `#3FAF82` | avocado, pea pod, kiwi |
-| Tue — peach | `#FFDCC9` | `#F07E45` | peach, croissant, carrot |
-| Wed — lavender | `#E4DCFF` | `#7C63E0` | grapes, plum, macaron |
-| Thu — butter | `#FFF1B8` | `#E0A417` | banana, lemon, egg |
-| Fri — bubblegum | `#FFD8E6` | `#EC5A8C` | strawberry, donut, cherry |
-| Sat — sky | `#D3ECFF` | `#3F8ED6` | blueberry, ice cream, cupcake |
-| Sun — matcha | `#E2F0C6` | `#6FA22E` | pizza slice, tomato, pear |
+| Mon — mint | `#E3F6EC → #C4ECD9` | `#3FAF82` | avocado |
+| Tue — peach | `#FFE9DC → #FFD0B9` | `#F07E45` | peach |
+| Wed — lavender | `#EEE9FF → #D8CEFF` | `#7C63E0` | grapes |
+| Thu — butter | `#FFF6D6 → #FFEAA6` | `#E0A417` | lemon |
+| Fri — bubblegum | `#FFE6EF → #FFCBDC` | `#EC5A8C` | strawberry |
+| Sat — sky | `#E4F2FF → #C6E3FF` | `#3F8ED6` | blueberries |
+| Sun — matcha | `#EEF5DB → #DAEBB6` | `#6FA22E` | pear |
 
 The app is fully branded and **follows the clock, not the system
-appearance**: day worlds by day, the white night sheet by night (Settings can
-turn the night look off). This is a deliberate deviation from BLUEPRINT §2's
-native light/dark rule — the brief asked for a branded, non-native look.
+appearance**: day worlds by day, the night sheet by night (Settings can turn
+the night look off). A deliberate deviation from BLUEPRINT §2.
 
-## 4. Type
+## 5. Type
 
-- Display: **Fredoka** (SemiBold/Bold) — rounded, friendly, great numerals.
-- Body: **Nunito** (SemiBold/ExtraBold).
-- Both embedded (`app/assets/fonts`, OFL), static instances cut from the
-  variable fonts so Android weights render exactly. Japanese falls back to
-  the system font (Hiragino / Noto Sans JP).
+**Plus Jakarta Sans** for everything (Medium, SemiBold, Bold, ExtraBold —
+static instances cut from the variable font so Android weights render
+exactly; `app/assets/fonts`, OFL). Hero numbers ExtraBold with tight
+tracking, titles Bold, body Medium. Japanese falls back to the system font.
 
-## 5. Mascot — "Slice"
+## 6. Motion
 
-A pizza that is also a pie chart of the day's macros: three pastel wedges
-(protein · carbs · fat) in a toasted crust, the protein wedge pulled out
-like a slice being grabbed, two oval dot eyes and blush cheeks sitting
-inside the big wedge so no line crosses the face. Personality: a cheerful
-little foodie who never judges what you ate.
+Short ease-out curves (`app/src/ui/motion.ts`), 140–420 ms, nothing
+overshoots, nothing loops. Presses settle 2–3% smaller and slightly dimmer.
+No springs, no bobbing, no nudges — the hints are static chips.
 
-Poses (drawn in code, `app/src/art/Mascot.tsx`): `wave` (onboarding hook,
-paywall), `think` (goal step), `happy` (default, share card), `wow` (snap
-confirmation, success), `sleep` (empty states, camera off).
+## 7. Do / don't
 
-## 6. Do / don't
+Do: soft shadows · gradients that read as light · one object per day · lots
+of quiet space · tabular numerals.
 
-Do: thick ink outlines · flat pastel fills · dot eyes + blush · one doodle
-family per weekday · springs on everything that moves.
+Don't: outlines · emoji · faces on food · springs or bounces · red "over
+budget" alarm colours (over is a soft coral) · guilt copy ("cheat", "bad
+food").
 
-Don't: photos of food in the UI chrome · gradients on the mascot · 3D or
-gloss · red "over budget" alarm colours (over is a soft coral, never a
-warning) · guilt copy ("cheat", "bad food").
+## 8. App icon
 
-## Artwork status
-
-Everything in the shipped app is vector art drawn in code, so the app is
-complete without generated images. Optional Higgsfield upgrades (sticker-style
-mascot pose sheet, richer doodles, a website hero) are listed with ready
-prompts in `HANDOFF.md` → *Image prompts*.
+The pizza-that-is-a-pie-chart mark (`marketing/brand/icon.svg`, with the
+kawaii face) predates the clay look. A soft-3D replacement is drafted in
+`marketing/brand-art/raw/icon.png` when present; switching it means
+replacing `app/assets/icon.png`, the Android foreground and the splash icon.

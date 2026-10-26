@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import { Mascot } from '../art/Mascot';
+import { Hero } from '../art/Hero';
 import { locale, t } from '../i18n';
 import { buy, loadPlans, perDay, restore, savingsPercent, type Plan } from '../iap';
 import { useStore } from '../store';
-import { BLUSH, INK, INK_FAINT, INK_SOFT, MACRO } from '../theme';
+import { BLUSH, INK, INK_FAINT, INK_HAIR, INK_SOFT, MACRO, SHADOW_SM, SURFACE } from '../theme';
 import { CheckIcon } from '../ui/Icons';
 import { Pressy, T, haptic } from '../ui/kit';
 import { Button } from '../ui/controls';
@@ -119,7 +119,7 @@ export function Paywall({ visible, onClose }: { visible: boolean; onClose(): voi
   return (
     <Sheet visible={visible} onClose={onClose} footer={footer} maxHeightRatio={0.94}>
       <View style={styles.hero}>
-        <Mascot size={110} pose={thanks ? 'wow' : 'wave'} />
+        <Hero kind="camera" size={120} />
         <T v="title" style={styles.center}>
           {thanks ? t('pwThanks') : t('pwTitle')}
         </T>
@@ -128,11 +128,11 @@ export function Paywall({ visible, onClose }: { visible: boolean; onClose(): voi
         </T>
       </View>
 
-      <View style={{ gap: 10, marginTop: 14 }}>
+      <View style={{ gap: 10, marginTop: 16 }}>
         {[t('pwFeature1'), t('pwFeature2'), t('pwFeature3'), t('pwFeature4')].map((f, i) => (
           <View key={i} style={styles.feature}>
-            <View style={[styles.tick, { backgroundColor: [MACRO.protein, MACRO.carbs, MACRO.fat, BLUSH][i] }]}>
-              <CheckIcon size={16} color={INK} />
+            <View style={[styles.tick, { backgroundColor: `${[MACRO.protein, MACRO.carbs, MACRO.fat, BLUSH][i]}33` }]}>
+              <CheckIcon size={15} color={INK} />
             </View>
             <T v="body">{f}</T>
           </View>
@@ -156,9 +156,10 @@ export function Paywall({ visible, onClose }: { visible: boolean; onClose(): voi
                 onPress={() => setSel(p.id)}
                 accessibilityRole="radio"
                 accessibilityState={{ selected: on }}
-                style={[styles.plan, on && styles.planOn]}
-                scaleTo={0.98}
+                style={[styles.plan, on && [styles.planOn, SHADOW_SM]]}
+                scaleTo={0.985}
               >
+                <View style={[styles.radio, on && styles.radioOn]}>{on ? <View style={styles.radioDot} /> : null}</View>
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <T v="h2">{p.period === 'year' ? t('pwYearly') : t('pwMonthly')}</T>
@@ -196,10 +197,13 @@ const styles = StyleSheet.create({
   hero: { alignItems: 'center', gap: 8, marginTop: 4 },
   center: { textAlign: 'center' },
   feature: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  tick: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: INK },
-  plan: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 22, borderWidth: 2.5, borderColor: INK_FAINT, backgroundColor: '#FFFFFF' },
-  planOn: { borderColor: INK, backgroundColor: '#FFF1F5' },
-  badge: { backgroundColor: MACRO.carbs, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  tick: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  plan: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 22, backgroundColor: INK_HAIR },
+  planOn: { backgroundColor: SURFACE },
+  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: 'rgba(43,35,80,0.25)', alignItems: 'center', justifyContent: 'center' },
+  radioOn: { borderColor: INK },
+  radioDot: { width: 11, height: 11, borderRadius: 6, backgroundColor: INK },
+  badge: { backgroundColor: `${MACRO.carbs}55`, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
   unavailable: { padding: 18, borderRadius: 20, backgroundColor: INK_FAINT },
   links: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, paddingHorizontal: 4 },
 });

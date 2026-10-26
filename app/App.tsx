@@ -16,11 +16,10 @@ void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 export default function App() {
   const [fontsLoaded] = useFonts({
-    'Fredoka-Medium': require('./assets/fonts/Fredoka-Medium.ttf'),
-    'Fredoka-SemiBold': require('./assets/fonts/Fredoka-SemiBold.ttf'),
-    'Fredoka-Bold': require('./assets/fonts/Fredoka-Bold.ttf'),
-    'Nunito-SemiBold': require('./assets/fonts/Nunito-SemiBold.ttf'),
-    'Nunito-ExtraBold': require('./assets/fonts/Nunito-ExtraBold.ttf'),
+    'PlusJakartaSans-Medium': require('./assets/fonts/PlusJakartaSans-Medium.ttf'),
+    'PlusJakartaSans-SemiBold': require('./assets/fonts/PlusJakartaSans-SemiBold.ttf'),
+    'PlusJakartaSans-Bold': require('./assets/fonts/PlusJakartaSans-Bold.ttf'),
+    'PlusJakartaSans-ExtraBold': require('./assets/fonts/PlusJakartaSans-ExtraBold.ttf'),
   });
   const loaded = useStore((s) => s.loaded);
   const onboarded = useStore((s) => s.onboarded);

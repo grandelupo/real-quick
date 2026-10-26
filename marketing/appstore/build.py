@@ -45,8 +45,8 @@ CHROME = next(
     ] if pathlib.Path(p).exists()),
     "chromium",
 )
-# Real Quick's display face (BRAND: Fredoka), embedded — not SF Rounded.
-FONT = ROOT.parent.parent / "app" / "assets" / "fonts" / "Fredoka-SemiBold.ttf"
+# Real Quick's display face (BRAND: Plus Jakarta Sans), embedded — not SF Rounded.
+FONT = ROOT.parent.parent / "app" / "assets" / "fonts" / "PlusJakartaSans-Bold.ttf"
 
 # ---------------------------------------------------------------- FILL IN ---
 # The brand gradient: a radial glow over a vertical wash, both drawn from the
@@ -148,6 +148,27 @@ def b64(path: pathlib.Path) -> str:
     return base64.b64encode(path.read_bytes()).decode()
 
 
+REVIEW_PAGE = """<!doctype html><meta charset="utf-8">
+<style>* {{ margin: 0; padding: 0; }} body {{ width: 1320px; height: 2868px; overflow: hidden; background: #fff; }} img {{ display: block; width: 1320px; }}</style>
+<body>{status}<img src="data:image/png;base64,{shot}"></body>"""
+
+
+def review_screenshot() -> None:
+    """subscription-review.png: the raw paywall capture (1320×2706) under the
+    status bar, so it is exactly the 6.9" size App Store Connect accepts."""
+    raw = ROOT / "subscription-review.png"
+    if not raw.exists() or "--play" in sys.argv:
+        return
+    html = REVIEW_PAGE.format(status=STATUS_BAR.format(h=162, bg="#FBFAF8").replace("46px", "58px"), shot=b64(raw))
+    with tempfile.NamedTemporaryFile("w", suffix=".html", delete=False) as f:
+        f.write(html)
+        page = f.name
+    subprocess.run([CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-sandbox", "--force-device-scale-factor=1",
+                    "--window-size=1320,2868", f"--screenshot={raw}", f"file://{page}"], check=True, capture_output=True)
+    pathlib.Path(page).unlink()
+    print("subscription-review.png  ←  padded to 1320×2868")
+
+
 def main() -> None:
     font = b64(pathlib.Path(FONT))
     width, height = SLOT["canvas"]
@@ -181,6 +202,7 @@ def main() -> None:
             )
             pathlib.Path(page).unlink()
             print(f"{target.relative_to(ROOT.parent)}  ←  {raw_name}  “{headline}”")
+    review_screenshot()
 
 
 if __name__ == "__main__":

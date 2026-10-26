@@ -11,7 +11,7 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "marketing/brand-art/raw/feature-gemini.png"
 OUT = ROOT / "marketing/play/out/graphics/feature-1024x500.png"
-FONT = ROOT / "app/assets/fonts/Fredoka-Bold.ttf"
+FONT = ROOT / "app/assets/fonts/PlusJakartaSans-ExtraBold.ttf"
 NAVY = (42, 36, 86)
 W, H = 1024, 500
 
@@ -22,7 +22,7 @@ left, top = (img.width - W) // 2, (img.height - H) // 2
 img = img.crop((left, top, left + W, top + H))
 d = ImageDraw.Draw(img)
 big = ImageFont.truetype(str(FONT), 64)
-small = ImageFont.truetype(str(FONT.with_name("Fredoka-Medium.ttf")), 30)
+small = ImageFont.truetype(str(FONT.with_name("PlusJakartaSans-SemiBold.ttf")), 30)
 x = 470
 lines = [("Snap your food.", big), ("That’s it.", big), ("Calories counted while you eat.", small)]
 y = 140

@@ -1,12 +1,13 @@
 import React, { useEffect } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { INK, PAPER, SPRING } from '../theme';
+import { INK, PAPER, SHADOW } from '../theme';
+import { TIMING, TIMING_SLOW } from '../ui/motion';
 import { Pressy } from '../ui/kit';
 
-// One bottom sheet for everything (edit, settings, paywall). Springs up,
+// One bottom sheet for everything (edit, settings, paywall). Eases up,
 // drags down to dismiss, dims what's behind it.
 
 export function Sheet({
@@ -33,9 +34,9 @@ export function Sheet({
   useEffect(() => {
     if (visible) {
       setMounted(true);
-      y.value = withSpring(0, SPRING);
+      y.value = withTiming(0, TIMING_SLOW);
     } else if (mounted) {
-      y.value = withTiming(height, { duration: 240 }, (done) => {
+      y.value = withTiming(height, TIMING, (done) => {
         if (done) runOnJS(setMounted)(false);
       });
     }
@@ -48,11 +49,11 @@ export function Sheet({
     })
     .onEnd((e) => {
       if (y.value > 120 || e.velocityY > 900) runOnJS(onClose)();
-      else y.value = withSpring(0, SPRING);
+      else y.value = withTiming(0, TIMING);
     });
 
   const sheet = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
-  const scrim = useAnimatedStyle(() => ({ opacity: 0.4 * (1 - Math.min(1, y.value / height)) }));
+  const scrim = useAnimatedStyle(() => ({ opacity: 0.32 * (1 - Math.min(1, y.value / height)) }));
 
   if (!mounted) return null;
 
@@ -70,7 +71,7 @@ export function Sheet({
         <Pressy style={StyleSheet.absoluteFill} onPress={onClose} hapticKind="none" scaleTo={1} accessibilityLabel="Close" />
       </Animated.View>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.kav} pointerEvents="box-none">
-        <Animated.View style={[styles.sheet, { maxHeight: height * maxHeightRatio }, sheet]}>
+        <Animated.View style={[styles.sheet, SHADOW, { maxHeight: height * maxHeightRatio }, sheet]}>
           <GestureDetector gesture={drag}>
             <View style={styles.grabZone}>
               <View style={styles.grabber} />
@@ -90,11 +91,8 @@ const styles = StyleSheet.create({
     backgroundColor: PAPER,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
-    borderWidth: 2.5,
-    borderBottomWidth: 0,
-    borderColor: INK,
     paddingHorizontal: 22,
   },
   grabZone: { alignItems: 'center', paddingVertical: 10 },
-  grabber: { width: 44, height: 5, borderRadius: 3, backgroundColor: 'rgba(43,35,80,0.2)' },
+  grabber: { width: 40, height: 5, borderRadius: 3, backgroundColor: 'rgba(43,35,80,0.16)' },
 });

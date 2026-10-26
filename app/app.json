@@ -68,11 +68,10 @@
         "expo-font",
         {
           "fonts": [
-            "./assets/fonts/Fredoka-Medium.ttf",
-            "./assets/fonts/Fredoka-SemiBold.ttf",
-            "./assets/fonts/Fredoka-Bold.ttf",
-            "./assets/fonts/Nunito-SemiBold.ttf",
-            "./assets/fonts/Nunito-ExtraBold.ttf"
+            "./assets/fonts/PlusJakartaSans-Medium.ttf",
+            "./assets/fonts/PlusJakartaSans-SemiBold.ttf",
+            "./assets/fonts/PlusJakartaSans-Bold.ttf",
+            "./assets/fonts/PlusJakartaSans-ExtraBold.ttf"
           ]
         }
       ],
@@ -102,8 +101,8 @@
         "react-native-android-widget",
         {
           "fonts": [
-            "./assets/fonts/Fredoka-SemiBold.ttf",
-            "./assets/fonts/Nunito-ExtraBold.ttf"
+            "./assets/fonts/PlusJakartaSans-Bold.ttf",
+            "./assets/fonts/PlusJakartaSans-SemiBold.ttf"
           ],
           "widgets": [
             {
@@ -135,7 +134,36 @@
       "./plugins/with-iphone-only"
     ],
     "extra": {
-      "gatewayUrl": "https://realquick.lab.karolkrakowski.pl"
+      "gatewayUrl": "https://realquick.lab.karolkrakowski.pl",
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "bundleIdentifier": "com.latovi.realquick.widget",
+                  "targetName": "RealQuickWidgets",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.latovi.realquick.shared"
+                    ]
+                  }
+                },
+                {
+                  "bundleIdentifier": "com.latovi.realquick.widget",
+                  "targetName": "RealQuickWidgets",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.latovi.realquick.shared"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "31a5a7d1-ff2b-46f6-810e-86c94fc9a0cf"
+      }
     }
   }
 }

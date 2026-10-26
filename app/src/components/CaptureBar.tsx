@@ -11,18 +11,19 @@ import Animated, {
   useSharedValue,
   withDelay,
   withSequence,
-  withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { isButtonCollapsed } from '../engine';
 import { t } from '../i18n';
 import { storeCapture } from '../photos';
 import { addEntry, newId, useStore } from '../store';
-import { BLUSH, FONT, INK, INK_SOFT, PAPER, SHADOW, SPRING } from '../theme';
+import { ABS, BLUSH_DEEP, FONT, INK, INK_SOFT, SHADOW, SURFACE } from '../theme';
 import { CameraIcon, CloseIcon } from '../ui/Icons';
+import { EASE_IN_OUT, EASE_OUT, TIMING_SLOW } from '../ui/motion';
 import { Pressy, T, haptic } from '../ui/kit';
-import { Mascot } from '../art/Mascot';
+import { Hero } from '../art/Hero';
 
 // The bottom bar: a live mini camera preview next to one big button. Tap the
 // button and forget it — the photo is taken from the already-running preview
@@ -72,7 +73,7 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
   const fly = useSharedValue(0);
 
   useEffect(() => {
-    k.value = withSpring(big ? 1 : 0, SPRING);
+    k.value = withTiming(big ? 1 : 0, TIMING_SLOW);
   }, [big, k]);
 
   const previewStyle = useAnimatedStyle(() => ({
@@ -82,16 +83,16 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
     height: interpolate(k.value, [0, 1], [small.h, large.h]),
     borderRadius: interpolate(k.value, [0, 1], [small.r, large.r]),
   }));
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: k.value * 0.55 }));
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: k.value * 0.5 }));
   const bigChrome = useAnimatedStyle(() => ({ opacity: interpolate(k.value, [0.6, 1], [0, 1], 'clamp') }));
   const flashStyle = useAnimatedStyle(() => ({ opacity: flash.value }));
+  // The snapped photo lifts out of the preview and drifts toward the food list.
   const flyStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(fly.value, [0, 0.15, 0.8, 1], [0, 1, 1, 0]),
+    opacity: interpolate(fly.value, [0, 0.12, 0.8, 1], [0, 1, 1, 0]),
     transform: [
       { translateX: interpolate(fly.value, [0, 1], [0, width - SIDE * 2 - PREVIEW]) },
-      { translateY: interpolate(fly.value, [0, 0.5, 1], [0, -height * 0.32, -height * 0.42]) },
-      { scale: interpolate(fly.value, [0, 0.3, 1], [1, 1.3, 0.45]) },
-      { rotate: `${interpolate(fly.value, [0, 1], [0, 14])}deg` },
+      { translateY: interpolate(fly.value, [0, 1], [0, -height * 0.4]) },
+      { scale: interpolate(fly.value, [0, 0.25, 1], [1, 1.15, 0.5]) },
     ],
   }));
 
@@ -127,7 +128,7 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
         if (!pic?.uri) throw new Error('no photo');
         setFlyUri(pic.uri);
         fly.value = 0;
-        fly.value = withDelay(40, withTiming(1, { duration: 780 }, (done) => {
+        fly.value = withDelay(40, withTiming(1, { duration: 720, easing: EASE_IN_OUT }, (done) => {
           if (done) runOnJS(setFlyUri)(null);
         }));
         const id = newId();
@@ -181,7 +182,7 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
 
       {/* the bar */}
       <Animated.View
-        layout={LinearTransition.springify().damping(18)}
+        layout={LinearTransition.duration(260).easing(EASE_OUT)}
         style={[
           styles.bar,
           { bottom, left: SIDE + PREVIEW + GAP, right: collapsed ? undefined : SIDE },
@@ -192,19 +193,23 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
           hapticKind="none"
           accessibilityLabel={t('snapA11y')}
           testID="snap-button"
-          style={[styles.button, SHADOW, collapsed ? styles.buttonSmall : styles.buttonBig, busy && { opacity: 0.85 }]}
+          style={[styles.button, collapsed ? [styles.buttonSmall, styles.buttonSmallShadow] : [styles.buttonBig, SHADOW], busy && { opacity: 0.85 }]}
         >
           {collapsed ? (
-            <Animated.View key="icon" entering={FadeIn.duration(250)} exiting={FadeOut.duration(120)}>
-              <CameraIcon size={34} color={INK} stroke={2.3} />
+            <Animated.View key="icon" entering={FadeIn.duration(250)} exiting={FadeOut.duration(120)} style={StyleSheet.absoluteFill}>
+              <LinearGradient colors={['#FFB7C9', '#FF93AE']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={[StyleSheet.absoluteFill, styles.center]}>
+                <View style={styles.smallEdge} pointerEvents="none" />
+                <CameraIcon size={32} color={INK} stroke={2.2} />
+              </LinearGradient>
             </Animated.View>
           ) : (
             <Animated.View key="label" entering={FadeIn.duration(250)} exiting={FadeOut.duration(120)} style={styles.labelWrap}>
+              <View style={styles.edge} pointerEvents="none" />
               <T v="button" style={styles.label}>
                 {t('ctaPrefix')}{' '}
               </T>
               <View style={styles.inlineIcon}>
-                <CameraIcon size={22} color={INK} stroke={2.4} />
+                <CameraIcon size={21} color={INK} stroke={2.3} />
               </View>
               <T v="button" style={styles.label}>
                 {' '}{t('ctaSuffix')}
@@ -228,9 +233,10 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
           />
         ) : (
           <View style={[StyleSheet.absoluteFill, styles.noCam]}>
-            <Mascot size={44} pose="sleep" />
+            <Hero kind="camera" size={46} shadow={false} />
           </View>
         )}
+        <View pointerEvents="none" style={styles.previewEdge} />
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: '#FFFFFF' }, flashStyle]} />
         {!big && (
           <Pressy
@@ -255,7 +261,7 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
 
       {/* the snapped photo flies off toward the food list */}
       {flyUri && (
-        <Animated.View pointerEvents="none" style={[styles.fly, { left: small.x, top: small.y }, flyStyle]}>
+        <Animated.View pointerEvents="none" style={[styles.fly, SHADOW, { left: small.x, top: small.y }, flyStyle]}>
           <Image source={{ uri: flyUri }} style={styles.flyImg} />
         </Animated.View>
       )}
@@ -265,22 +271,26 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
 
 const styles = StyleSheet.create({
   bar: { position: 'absolute', height: BAR_HEIGHT, justifyContent: 'center' },
+  center: { alignItems: 'center', justifyContent: 'center' },
   button: {
     height: BAR_HEIGHT - 8,
-    borderRadius: 26,
-    backgroundColor: PAPER,
-    borderWidth: 2.5,
-    borderColor: INK,
+    borderRadius: 24,
+    backgroundColor: SURFACE,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   buttonBig: { paddingHorizontal: 14 },
-  buttonSmall: { width: BAR_HEIGHT - 8, borderRadius: 34, backgroundColor: BLUSH },
-  labelWrap: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' },
-  label: { fontFamily: FONT.display, fontSize: 17, lineHeight: 22, textAlign: 'center' },
+  buttonSmall: { width: BAR_HEIGHT - 8, borderRadius: 34 },
+  buttonSmallShadow: { shadowColor: BLUSH_DEEP, shadowOpacity: 0.45, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
+  edge: { ...ABS, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.9)', borderBottomColor: 'rgba(43,35,80,0.05)' },
+  smallEdge: { ...ABS, borderRadius: 34, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.55)', borderBottomColor: 'rgba(255,255,255,0.1)' },
+  labelWrap: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  label: { fontFamily: FONT.displayMedium, fontSize: 16, lineHeight: 21, textAlign: 'center' },
   inlineIcon: { marginTop: -2 },
-  preview: { position: 'absolute', overflow: 'hidden', backgroundColor: '#2B2350', borderWidth: 2.5, borderColor: INK },
-  noCam: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFE3EA' },
+  preview: { position: 'absolute', overflow: 'hidden', backgroundColor: INK },
+  previewEdge: { ...ABS, borderRadius: 20, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.7)' },
+  noCam: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFE9EF' },
   close: {
     position: 'absolute',
     top: 14,
@@ -288,7 +298,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: PAPER,
+    backgroundColor: SURFACE,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -304,8 +314,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  shutterInner: { width: 62, height: 62, borderRadius: 31, backgroundColor: BLUSH, borderWidth: 2.5, borderColor: INK },
-  fly: { position: 'absolute', width: PREVIEW, height: PREVIEW, borderRadius: 16, overflow: 'hidden', borderWidth: 3, borderColor: '#FFFFFF' },
+  shutterInner: { width: 62, height: 62, borderRadius: 31, backgroundColor: '#FFFFFF' },
+  fly: { position: 'absolute', width: PREVIEW, height: PREVIEW, borderRadius: 16, overflow: 'hidden', borderWidth: 2, borderColor: '#FFFFFF' },
   flyImg: { width: '100%', height: '100%' },
 });
 

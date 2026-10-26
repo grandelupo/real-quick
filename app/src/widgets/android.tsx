@@ -57,15 +57,15 @@ export function TodayWidget({ s }: { s: WidgetSnapshot | null }) {
       }}
     >
       <FlexWidget style={{ flexDirection: 'column', justifyContent: 'center', flex: 1 }}>
-        <TextWidget text={s?.label.today ?? 'Today'} style={{ fontSize: 13, fontFamily: 'Nunito-ExtraBold', color: INK }} />
-        <TextWidget text={s ? fmt(s.kcal) : '–'} style={{ fontSize: 40, fontFamily: 'Fredoka-SemiBold', color: INK }} />
+        <TextWidget text={s?.label.today ?? 'Today'} style={{ fontSize: 13, fontFamily: 'PlusJakartaSans-SemiBold', color: INK }} />
+        <TextWidget text={s ? fmt(s.kcal) : '–'} style={{ fontSize: 40, fontFamily: 'PlusJakartaSans-Bold', color: INK }} />
         <TextWidget
           text={s ? `${s.label.of} ${fmt(s.goal)} ${s.unit} · ${left >= 0 ? s.label.left.replace('{n}', fmt(left)) : `+${fmt(-left)}`}` : ''}
-          style={{ fontSize: 12, fontFamily: 'Nunito-ExtraBold', color: INK }}
+          style={{ fontSize: 12, fontFamily: 'PlusJakartaSans-SemiBold', color: INK }}
         />
         <TextWidget
           text={s ? `P ${s.protein}g · C ${s.carbs}g · F ${s.fat}g` : ''}
-          style={{ fontSize: 12, fontFamily: 'Nunito-ExtraBold', color: ring }}
+          style={{ fontSize: 12, fontFamily: 'PlusJakartaSans-SemiBold', color: ring }}
         />
       </FlexWidget>
       <FlexWidget

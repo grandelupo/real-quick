@@ -109,10 +109,10 @@ export function GoalCalculator({
         value={p.activity}
         onChange={(activity) => update({ activity })}
         options={[
-          { value: 'low', label: '🪑', sub: t('actLow') },
-          { value: 'light', label: '🚶', sub: t('actLight') },
-          { value: 'moderate', label: '🏃', sub: t('actModerate') },
-          { value: 'high', label: '🔥', sub: t('actHigh') },
+          { value: 'low', label: t('actLow') },
+          { value: 'light', label: t('actLight') },
+          { value: 'moderate', label: t('actModerate') },
+          { value: 'high', label: t('actHigh') },
         ]}
       />
     </View>

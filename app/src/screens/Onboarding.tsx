@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { Platform, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
-import Animated, { FadeInRight, FadeOutLeft, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCameraPermissions } from 'expo-camera';
 import { DayArt } from '../art/DayArt';
-import { Mascot, type Pose } from '../art/Mascot';
+import { Hero } from '../art/Hero';
 import { BIAS_MULTIPLIER, GOAL_MAX, GOAL_MIN, GOAL_STEP, dayKey, toUnit, weekdayIndex, type Bias, type Profile } from '../engine';
 import { n, t } from '../i18n';
 import { setSettings, useStore } from '../store';
-import { INK, INK_FAINT, INK_SOFT, MACRO, PAPER, SHADOW } from '../theme';
+import { DAYS, INK, INK_FAINT, INK_HAIR, INK_SOFT, MACRO, PAPER, SHADOW, SHADOW_SM, SURFACE } from '../theme';
 import { CameraIcon, ChevronIcon, NotesIcon } from '../ui/Icons';
+import { EASE_OUT, TIMING } from '../ui/motion';
 import { Pressy, T } from '../ui/kit';
 import { Button, Segmented, Stepper } from '../ui/controls';
 import { GoalCalculator } from '../components/GoalCalculator';
@@ -20,7 +21,6 @@ import { GoalCalculator } from '../components/GoalCalculator';
 
 type Step = 'hello' | 'goal' | 'bias' | 'camera' | 'tour';
 const STEPS: Step[] = ['hello', 'goal', 'bias', 'camera', 'tour'];
-const POSE: Record<Step, Pose> = { hello: 'wave', goal: 'think', bias: 'happy', camera: 'wow', tour: 'happy' };
 
 export function Onboarding({ onDone }: { onDone(): void }) {
   const { width, height } = useWindowDimensions();
@@ -40,13 +40,13 @@ export function Onboarding({ onDone }: { onDone(): void }) {
   };
   const back = () => setI(Math.max(0, i - 1));
 
-  const progress = useAnimatedStyle(() => ({ width: withSpring(`${((i + 1) / STEPS.length) * 100}%`, { damping: 20 }) }));
+  const progress = useAnimatedStyle(() => ({ width: withTiming(`${((i + 1) / STEPS.length) * 100}%`, TIMING) }));
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <DayArt weekday={wd} width={width} height={height} night={false} active />
+      <DayArt weekday={wd} width={width} height={height} night={false} />
       <View style={[styles.top, { paddingTop: insets.top + 10 }]}>
-        <Pressy onPress={back} disabled={i === 0} style={[styles.back, i === 0 && { opacity: 0 }]} accessibilityLabel="Back">
+        <Pressy onPress={back} disabled={i === 0} style={[styles.back, SHADOW_SM, i === 0 && { opacity: 0 }]} accessibilityLabel="Back">
           <ChevronIcon size={22} />
         </Pressy>
         <View style={styles.progressTrack}>
@@ -55,11 +55,13 @@ export function Onboarding({ onDone }: { onDone(): void }) {
         <View style={{ width: 44 }} />
       </View>
 
-      <Animated.View key={step} entering={FadeInRight.springify().damping(20)} exiting={FadeOutLeft.duration(160)} style={[styles.card, SHADOW, { marginBottom: insets.bottom + 16 }]}>
+      <Animated.View key={step} entering={FadeIn.duration(320).easing(EASE_OUT)} exiting={FadeOut.duration(140)} style={[styles.card, SHADOW, { marginBottom: insets.bottom + 16 }]}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <View style={{ alignItems: 'center' }}>
-            <Mascot size={step === 'hello' ? 150 : 96} pose={POSE[step]} />
-          </View>
+          {(step === 'hello' || step === 'camera') && (
+            <View style={{ alignItems: 'center', marginBottom: 6 }}>
+              <Hero kind={step === 'hello' ? DAYS[wd].hero : 'camera'} size={step === 'hello' ? 168 : 128} />
+            </View>
+          )}
 
           {step === 'hello' && (
             <>
@@ -132,8 +134,8 @@ export function Onboarding({ onDone }: { onDone(): void }) {
                     onPress={() => setSettings({ bias: b })}
                     accessibilityRole="radio"
                     accessibilityState={{ selected: on }}
-                    style={[styles.option, on && styles.optionOn]}
-                    scaleTo={0.98}
+                    style={[styles.option, on && [styles.optionOn, SHADOW_SM]]}
+                    scaleTo={0.985}
                   >
                     <View style={{ flex: 1 }}>
                       <T v="h2">{label}</T>
@@ -158,16 +160,6 @@ export function Onboarding({ onDone }: { onDone(): void }) {
               <T v="body" color={INK_SOFT} style={styles.p}>
                 {t('obCameraBody')}
               </T>
-              <View style={styles.mock}>
-                <View style={styles.mockPreview}>
-                  <CameraIcon size={22} color="#FFFFFF" />
-                </View>
-                <View style={styles.mockButton}>
-                  <T v="label" style={{ textAlign: 'center' }}>
-                    {t('ctaPrefix')} 📷 {t('ctaSuffix')}
-                  </T>
-                </View>
-              </View>
             </>
           )}
 
@@ -182,14 +174,14 @@ export function Onboarding({ onDone }: { onDone(): void }) {
                 [<ChevronIcon key="u" size={22} dir="up" />, t('obTour3'), MACRO.fat],
               ].map(([icon, text, color], k) => (
                 <View key={k} style={styles.tourRow}>
-                  <View style={[styles.tourIcon, { backgroundColor: color as string }]}>{icon}</View>
+                  <View style={[styles.tourIcon, { backgroundColor: `${color as string}33` }]}>{icon}</View>
                   <T v="body" style={{ flex: 1 }}>
                     {text as string}
                   </T>
                 </View>
               ))}
               <View style={styles.tip}>
-                <T v="small">{Platform.OS === 'android' ? t('obWidgetAndroid') : t('obWidget')}</T>
+                <T v="small" color={INK_SOFT}>{Platform.OS === 'android' ? t('obWidgetAndroid') : t('obWidget')}</T>
               </View>
             </>
           )}
@@ -219,20 +211,17 @@ export function Onboarding({ onDone }: { onDone(): void }) {
 
 const styles = StyleSheet.create({
   top: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 12 },
-  back: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.8)', alignItems: 'center', justifyContent: 'center' },
-  progressTrack: { flex: 1, height: 10, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.7)', overflow: 'hidden' },
-  progressFill: { height: 10, borderRadius: 5, backgroundColor: INK },
-  card: { flex: 1, marginTop: 16, marginHorizontal: 14, borderRadius: 34, backgroundColor: PAPER, borderWidth: 2.5, borderColor: INK, overflow: 'hidden' },
-  scroll: { padding: 22, paddingBottom: 8 },
-  h: { textAlign: 'center', marginTop: 10 },
-  p: { textAlign: 'center', marginTop: 8, marginBottom: 18 },
-  option: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, borderWidth: 2.5, borderColor: INK_FAINT, backgroundColor: '#FFFFFF', marginBottom: 10 },
-  optionOn: { borderColor: INK, backgroundColor: '#FFF1F5' },
-  mock: { flexDirection: 'row', gap: 10, alignItems: 'center', marginTop: 4 },
-  mockPreview: { width: 60, height: 60, borderRadius: 18, backgroundColor: INK, alignItems: 'center', justifyContent: 'center' },
-  mockButton: { flex: 1, height: 60, borderRadius: 22, borderWidth: 2.5, borderColor: INK, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  back: { width: 44, height: 44, borderRadius: 22, backgroundColor: SURFACE, alignItems: 'center', justifyContent: 'center' },
+  progressTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.7)', overflow: 'hidden' },
+  progressFill: { height: 6, borderRadius: 3, backgroundColor: INK },
+  card: { flex: 1, marginTop: 18, marginHorizontal: 14, borderRadius: 34, backgroundColor: PAPER, overflow: 'hidden' },
+  scroll: { padding: 24, paddingBottom: 8, flexGrow: 1, justifyContent: 'center' },
+  h: { textAlign: 'center', marginTop: 8 },
+  p: { textAlign: 'center', marginTop: 8, marginBottom: 20 },
+  option: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, backgroundColor: INK_HAIR, marginBottom: 10 },
+  optionOn: { backgroundColor: SURFACE },
   tourRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 16 },
-  tourIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: INK },
+  tourIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   tip: { marginTop: 22, padding: 14, borderRadius: 18, backgroundColor: INK_FAINT },
   footer: { padding: 16, paddingTop: 8, gap: 4 },
 });

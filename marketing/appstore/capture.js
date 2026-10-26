@@ -68,7 +68,8 @@ async function page(browser, locale, hour) {
 }
 
 (async () => {
-  const browser = await chromium.launch();
+  // Locally the bundled Chromium is often stale: PW_CHANNEL=chrome uses the installed Chrome.
+  const browser = await chromium.launch(process.env.PW_CHANNEL ? { channel: process.env.PW_CHANNEL } : {});
   for (const locale of ['en-US', 'ja']) {
     const dir = path.join(OUT, locale);
     fs.mkdirSync(dir, { recursive: true });

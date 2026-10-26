@@ -12,7 +12,7 @@ brief and is deliberate.
 | Blueprint default | Real Quick | Why |
 |---|---|---|
 | Native SwiftUI, iPhone-only | **Expo SDK 57 (React Native), iOS + Android**, still iPhone-only on iOS (`plugins/with-iphone-only.js`) | Brief: "both Android and iOS – use Expo" |
-| Native components, system light/dark | **Fully branded UI** (Fredoka/Nunito, sticker outlines, pastel weekday worlds); follows the clock (white night look 20:00–05:59) instead of system appearance | Brief: "I don't want native UI … branded and fun" |
+| Native components, system light/dark | **Fully branded UI** (Plus Jakarta Sans, soft-clay surfaces, one soft-3D object per weekday, pastel gradients); follows the clock (off-white night look 20:00–05:59) instead of system appearance | Brief: "I don't want native UI … branded and fun"; Karol's review: refined, no bounces, no emoji |
 | 12–25 screen quiz funnel | **5 short screens** that collect real settings (goal, estimate bias, camera) + a 3-tip tour, then a soft paywall | Brief: "don't make complicated onboarding" |
 | TipKit tooltips | On-screen hints on today's page for the first snaps + a visible notes tab | No TipKit in RN; hints fade out after 4 snaps |
 | Unlimited free tier | **3 AI counts/day free**, Pro unlimited (gateway-enforced) | Every count has model cost (BLUEPRINT §4 marginal-cost rule) |
@@ -67,3 +67,7 @@ verified on a real device or via EAS.
   missing Japanese key or placeholder.
 - Widgets read only the App Group / AsyncStorage snapshot
   (`src/widgets/snapshot.ts`), never the network.
+- Look and motion rules live in `marketing/brand.md`: no outlines, no emoji,
+  no springs or loops — every animation is a short ease-out from
+  `src/ui/motion.ts`; illustration is only the clay set in `app/assets/art/`
+  (`marketing/brand-art/PROMPTS.md` says how to make more).

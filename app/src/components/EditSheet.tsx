@@ -4,7 +4,7 @@ import { entryMacros, toUnit, type Entry, type Settings } from '../engine';
 import { n, t } from '../i18n';
 import { removeEntry, updateEntry } from '../store';
 import { deletePhoto } from '../photos';
-import { INK, INK_FAINT, INK_SOFT } from '../theme';
+import { INK_HAIR, INK_SOFT, MACRO } from '../theme';
 import { T } from '../ui/kit';
 import { Button, Field, SectionTitle, Segmented } from '../ui/controls';
 import { Sheet } from './Sheet';
@@ -87,7 +87,7 @@ export function EditSheet({ entry, visible, settings, onClose }: { entry: Entry 
               <SectionTitle>{t('items')}</SectionTitle>
               {entry.items.map((it, i) => (
                 <View key={i} style={styles.item}>
-                  <T style={{ fontSize: 20 }}>{it.emoji}</T>
+                  <View style={[styles.itemDot, { backgroundColor: [MACRO.protein, MACRO.carbs, MACRO.fat][i % 3] }]} />
                   <T v="body" style={{ flex: 1 }} numberOfLines={1}>
                     {it.name}
                     {it.grams ? <T v="small" color={INK_SOFT}>{`  ${n(it.grams * shownScale)} g`}</T> : null}
@@ -110,6 +110,7 @@ export function EditSheet({ entry, visible, settings, onClose }: { entry: Entry 
 
 const styles = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 4 },
-  photo: { width: 72, height: 72, borderRadius: 18, borderWidth: 2.5, borderColor: INK },
-  item: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: INK_FAINT },
+  photo: { width: 72, height: 72, borderRadius: 18 },
+  item: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: INK_HAIR },
+  itemDot: { width: 8, height: 8, borderRadius: 4 },
 });

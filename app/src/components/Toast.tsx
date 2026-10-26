@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
-import { Mascot } from '../art/Mascot';
-import { INK, INK_SOFT, PAPER, SHADOW } from '../theme';
+import { INK, INK_FAINT, INK_SOFT, SHADOW, SURFACE } from '../theme';
+import { EASE_OUT } from '../ui/motion';
+import { CheckIcon } from '../ui/Icons';
 import { Pressy, T } from '../ui/kit';
 
 export interface ToastMsg {
@@ -29,10 +30,18 @@ export function Toast({ msg, bottom }: { msg: (ToastMsg & { key: number }) | nul
   if (!msg) return null;
   return (
     <View style={[styles.wrap, { bottom }]} pointerEvents="box-none">
-      <Animated.View key={msg.key} entering={FadeInDown.springify().damping(16)} exiting={FadeOutDown.duration(180)} style={[styles.toast, SHADOW]} accessibilityLiveRegion="polite">
-        <Mascot size={42} pose="wow" />
+      <Animated.View
+        key={msg.key}
+        entering={FadeInDown.duration(260).easing(EASE_OUT)}
+        exiting={FadeOutDown.duration(180)}
+        style={[styles.toast, SHADOW]}
+        accessibilityLiveRegion="polite"
+      >
+        <View style={styles.mark}>
+          <CheckIcon size={18} color={INK} />
+        </View>
         <View style={{ flex: 1 }}>
-          <T v="h2">{msg.text}</T>
+          <T v="label">{msg.text}</T>
           {msg.sub ? (
             <T v="small" color={INK_SOFT}>
               {msg.sub}
@@ -55,14 +64,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: PAPER,
-    borderRadius: 24,
-    borderWidth: 2.5,
-    borderColor: INK,
-    paddingVertical: 10,
+    backgroundColor: SURFACE,
+    borderRadius: 20,
+    paddingVertical: 12,
     paddingHorizontal: 14,
     maxWidth: 460,
     width: '100%',
   },
-  action: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(43,35,80,0.08)' },
+  mark: { width: 34, height: 34, borderRadius: 17, backgroundColor: INK_FAINT, alignItems: 'center', justifyContent: 'center' },
+  action: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: INK_FAINT },
 });

@@ -39,9 +39,9 @@ Tap one button. Real Quick snaps your plate and counts the calories, protein, ca
 HOW IT WORKS
 • One big button: tap it and forget it. A live mini camera sits right next to it, so the photo is taken instantly.
 • Today’s calories and macros, front and centre, against your daily goal.
-• Swipe up and down to visit other days. Every weekday has its own pastel colour and food doodles; after 8 pm everything turns into a calm night landscape.
+• Swipe up and down to visit other days. Every weekday has its own soft colour and object; after 8 pm everything turns into a calm night sheet.
 • Swipe left for the food list: fix a portion, remove something, or just type “2 eggs and toast”.
-• Share your day with your partner as a cute card, straight to Messages or WhatsApp.
+• Share your day with your partner as a card, straight to Messages or WhatsApp.
 
 SNAP FROM THE LOCK SCREEN
 Add the Snap widget to your Lock Screen, or the Snap control in place of the flashlight (iOS 18). One tap opens the camera and snaps — that’s the whole interaction.
@@ -95,9 +95,9 @@ Real Quick – いちばん速いカロリー計算アプリ。
 使い方
 ・大きなボタンをタップしたら、あとは忘れてOK。横に小さなカメラプレビューがあるので、すぐに撮影できます。
 ・今日のカロリーとPFCを、目標と一緒にひと目で。
-・上下にスワイプで他の日へ。曜日ごとにパステルカラーと食べもののイラストが変わり、20時以降はやさしい夜の景色に。
+・上下にスワイプで他の日へ。曜日ごとにやさしい色とオブジェが変わり、20時以降は落ち着いた夜の画面に。
 ・左にスワイプで食事リスト。量の修正、削除、「卵2個とトースト」のような入力もできます。
-・今日の記録をかわいいカードにして、パートナーにシェア。
+・今日の記録をカードにして、パートナーにシェア。
 
 ロック画面からワンタップ
 ロック画面に「撮影」ウィジェットを追加、またはiOS 18なら懐中電灯の代わりに「撮影」コントロールを置けます。タップするだけで撮影。
@@ -115,7 +115,7 @@ Real Quick Pro
 無料プランではAI計算が1日3回まで。よくある食品の入力はいつでも無料です。Proなら写真・入力・ウィジェットからの撮影が無制限になります。
 
 ・Real Quick Pro 月額 — 月額 ¥800、新規登録は1週間無料
-・Real Quick Pro 年額 — 年額 ¥4,800、新規登録は1週間無料
+・Real Quick Pro 年額 — 年額 ¥5,000、新規登録は1週間無料
 
 お支払いは無料期間終了後、購入の確定時にApple Accountに請求されます。現在の期間が終わる24時間前までに解約しない限り、サブスクリプションは自動更新され、期間終了前24時間以内に更新料金が請求されます。管理・解約は「設定」▸［ユーザ名］▸「サブスクリプション」からいつでも行えます。サブスクリプションを購入すると、無料期間の未使用分は失われます。
 
@@ -125,9 +125,8 @@ Real Quick Pro
 Real Quick は日々の記録のための目安を表示するもので、医療機器ではなく、医学的な助言を行うものではありません。
 ```
 
-Japanese prices: App Store Connect's equalised tier for $4.99 / $29.99 is
-shown in JPY when the products are created — replace ¥800 / ¥4,800 above with
-the exact tier ASC shows before submitting (handoff step 4 says where).
+Japanese prices are the equalised tiers App Store Connect assigned to $4.99 /
+$29.99: ¥800 and ¥5,000 (read back through the API on 2026-10-26).
 
 ## Subscription products
 
@@ -160,7 +159,7 @@ Real Quick is intentionally minimal — the simplicity IS the product. Most calo
 What the app does (all reachable without an account):
 1. Main screen: tap "Click to [camera] and track calories instantly". A live camera preview is next to the button (tap it to enlarge). The photo is analysed in the background and the calories/macros ring updates.
 2. Swipe left (or tap the small notes tab on the right edge): the day's food list — edit a portion, remove an entry, or type food ("2 eggs and toast" is resolved on-device instantly; anything else goes to the AI).
-3. Swipe up/down: previous days. Each weekday has its own colour and illustrations; after 8 pm the app switches to a white night landscape (Settings ▸ "Night look after 8pm").
+3. Swipe up/down: previous days. Each weekday has its own colour and a soft 3D object; after 8 pm the app switches to a calm off-white night look (Settings ▸ "Night look after 8pm").
 4. Share button (top right): shares a card image of the day via the system share sheet.
 5. Settings (cog, top right): daily goal with a built-in BMR calculator, estimate bias (lighter / as estimated / heavier), kcal/kJ, partner name for sharing, Pro status, Restore Purchases, Manage Subscription, privacy, terms, version.
 6. Widgets: Lock Screen "Snap" (circular) and "Today" (circular, rectangular, inline), Home Screen small/medium, and on iOS 18 a "Snap food" control for Control Center / the Lock Screen. Each opens the app and takes the photo automatically.
