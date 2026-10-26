@@ -155,8 +155,15 @@ export class ForestScene {
   private disposed = false;
 
   constructor(private gl: ExpoWebGLRenderingContext, width: number, height: number, pixelRatio: number) {
-    // three wants a canvas; expo-gl gives a context. A stub with the drawing
-    // buffer size is all the renderer reads from it.
+    // expo-gl's context lacks a few WebGL methods three calls at start-up and
+    // every frame (expo-three used to shim these; build 3 crashed on launch
+    // without them), and three wants a canvas: a stub with the drawing buffer
+    // size is all the renderer reads from it.
+    const ctx = gl as unknown as Record<string, unknown>;
+    if (typeof ctx.getContextAttributes !== 'function') {
+      ctx.getContextAttributes = () => ({ alpha: true, antialias: true, depth: true, stencil: false, premultipliedAlpha: true, preserveDrawingBuffer: false, failIfMajorPerformanceCaveat: false, desynchronized: false, powerPreference: 'default' });
+    }
+    if (typeof ctx.isContextLost !== 'function') ctx.isContextLost = () => false;
     const canvas = {
       width: gl.drawingBufferWidth,
       height: gl.drawingBufferHeight,
@@ -167,6 +174,7 @@ export class ForestScene {
       removeEventListener() {},
       getContext: () => gl,
     } as unknown as HTMLCanvasElement;
+    if (!ctx.canvas) ctx.canvas = canvas;
     this.renderer = new THREE.WebGLRenderer({ canvas, context: gl as unknown as WebGL2RenderingContext, alpha: true, antialias: true, premultipliedAlpha: true });
     this.renderer.setPixelRatio(pixelRatio);
     this.renderer.setSize(width, height, false);

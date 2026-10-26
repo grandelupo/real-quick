@@ -53,6 +53,14 @@ PROVIDER=fake PORT=8787 STATE_FILE=/tmp/rq.json python3 gateway.py   # local gat
 EXPO_PUBLIC_GATEWAY_URL=http://localhost:8787 npx expo start          # point the app at it
 ```
 
+If a build fails with `'hermes/hermes.h' file not found` (ExpoModulesJSI or
+RNWorklets), `ios/Pods/hermes-engine/destroot/include/` has been emptied —
+it happened here when the disk filled up mid-extraction. Restore it from the
+cached tarball: `tar -xzf ~/Library/Caches/ReactNative/hermes-ios-*-release.tar.gz
+-C ios/Pods/hermes-engine --include 'destroot/include/*'` (or `pod install` after
+deleting `ios/Pods/hermes-engine`). Xcode's run-script phases find `node`
+through `ios/.xcode.env.local` (`export NODE_BINARY=/usr/local/bin/node`).
+
 Simulators: use the single existing iOS simulator ("Upbell Capture"); never
 create simulators or Android emulators (see app-builder/CLAUDE.md). Android is
 verified on a real device or via EAS.

@@ -42,8 +42,15 @@ export const Forest = forwardRef<ForestHandle, Props>(function Forest({ width, h
 
   const loop = (now: number) => {
     if (!running.current) return;
-    if (rolling.current) scene.current?.setRoll(roll.value);
-    scene.current?.frame(now);
+    try {
+      if (rolling.current) scene.current?.setRoll(roll.value);
+      scene.current?.frame(now);
+    } catch (e) {
+      // a broken frame stops the forest, never the app
+      console.warn('forest stopped', e);
+      running.current = false;
+      return;
+    }
     raf.current = requestAnimationFrame(loop);
   };
   const start = () => {
@@ -95,9 +102,15 @@ export const Forest = forwardRef<ForestHandle, Props>(function Forest({ width, h
     if (Platform.OS === 'web') return;
     let sub: { remove(): void } | null = null;
     let alive = true;
-    void DeviceMotion.isAvailableAsync().then((ok) => {
-      if (!ok || !alive) return;
-      DeviceMotion.setUpdateInterval(50);
+    (async () => {
+      try {
+        if (!(await DeviceMotion.isAvailableAsync())) return;
+        const perm = await DeviceMotion.requestPermissionsAsync().catch(() => ({ granted: true }));
+        if (!perm.granted || !alive) return;
+        DeviceMotion.setUpdateInterval(50);
+      } catch {
+        return; // no sensors: the forest just doesn't tilt
+      }
       sub = DeviceMotion.addListener((m) => {
         const rot = m.rotation;
         if (!rot) return;
@@ -108,7 +121,7 @@ export const Forest = forwardRef<ForestHandle, Props>(function Forest({ width, h
         rest.current.pitch += (pitch - rest.current.pitch) * 0.015;
         scene.current?.setTilt(r - rest.current.roll, pitch - rest.current.pitch);
       });
-    });
+    })();
     return () => {
       alive = false;
       sub?.remove();
@@ -131,12 +144,16 @@ export const Forest = forwardRef<ForestHandle, Props>(function Forest({ width, h
         style={{ width, height }}
         msaaSamples={4}
         onContextCreate={(gl: ExpoWebGLRenderingContext) => {
-          const s = new ForestScene(gl, width, height, PixelRatio.get());
-          s.setDay(weekday, true);
-          s.setGrowth(growth, over);
-          s.setNight(night);
-          scene.current = s;
-          if (active) start();
+          try {
+            const s = new ForestScene(gl, width, height, PixelRatio.get());
+            s.setDay(weekday, true);
+            s.setGrowth(growth, over);
+            s.setNight(night);
+            scene.current = s;
+            if (active) start();
+          } catch (e) {
+            console.warn('forest unavailable', e);
+          }
         }}
       />
     </View>

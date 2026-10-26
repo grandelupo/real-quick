@@ -15,7 +15,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.latovi.realquick",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "supportsTablet": false,
       "config": {
         "usesNonExemptEncryption": false
@@ -27,7 +27,8 @@
           "en",
           "ja"
         ],
-        "CFBundleAllowMixedLocalizations": true
+        "CFBundleAllowMixedLocalizations": true,
+        "NSMotionUsageDescription": "Real Quick tilts the little forest with your phone. Motion data never leaves the device."
       },
       "entitlements": {
         "com.apple.security.application-groups": [
@@ -131,7 +132,13 @@
         }
       ],
       "expo-iap",
-      "./plugins/with-iphone-only"
+      "./plugins/with-iphone-only",
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "Real Quick tilts the little forest with your phone. Motion data never leaves the device."
+        }
+      ]
     ],
     "extra": {
       "gatewayUrl": "https://realquick.lab.karolkrakowski.pl",
