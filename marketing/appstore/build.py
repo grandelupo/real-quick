@@ -163,8 +163,8 @@ def review_screenshot() -> None:
     with tempfile.NamedTemporaryFile("w", suffix=".html", delete=False) as f:
         f.write(html)
         page = f.name
-    subprocess.run([CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-sandbox", "--force-device-scale-factor=1",
-                    "--window-size=1320,2868", f"--screenshot={raw}", f"file://{page}"], check=True, capture_output=True)
+    subprocess.run([CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-sandbox", "--force-device-scale-factor=1", f"--user-data-dir={tempfile.mkdtemp()}",
+                    "--window-size=1320,2868", f"--screenshot={raw}", f"file://{page}"], check=False, capture_output=True)
     pathlib.Path(page).unlink()
     print("subscription-review.png  ←  padded to 1320×2868")
 
@@ -195,12 +195,14 @@ def main() -> None:
             target = target_dir / f"{index:02d}.png"
             subprocess.run(
                 [CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-sandbox",
-                 "--force-device-scale-factor=1",
+                 "--force-device-scale-factor=1", f"--user-data-dir={tempfile.mkdtemp()}",
                  f"--window-size={width},{height}",
                  f"--screenshot={target}", f"file://{page}"],
-                check=True, capture_output=True,
+                check=False, capture_output=True,  # headless Chrome may crash on teardown after writing the file
             )
             pathlib.Path(page).unlink()
+            if not target.exists():
+                sys.exit(f"Chrome wrote no screenshot for {raw_name}")
             print(f"{target.relative_to(ROOT.parent)}  ←  {raw_name}  “{headline}”")
     review_screenshot()
 

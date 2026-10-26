@@ -60,7 +60,9 @@ async function page(browser, locale, hour) {
   const p = await ctx.newPage();
   await p.clock.install({ time: new Date(2026, 9, 26, hour, 41) });
   await p.clock.resume();
-  await p.goto(URL);
+  await p.goto(URL, { timeout: 240000 });
+  // Let the first load finish writing its defaults before seeding, or it overwrites ours.
+  await p.waitForTimeout(2500);
   await p.evaluate((s) => localStorage.setItem('realquick.v1', s), JSON.stringify(state(locale)));
   await p.reload();
   await p.waitForTimeout(4500);

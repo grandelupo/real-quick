@@ -15,7 +15,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.latovi.realquick",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "supportsTablet": false,
       "config": {
         "usesNonExemptEncryption": false
@@ -46,7 +46,7 @@
         "android.permission.RECORD_AUDIO"
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#FFD3DF",
+        "backgroundColor": "#FFC4D3",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
@@ -80,7 +80,7 @@
         {
           "image": "./assets/splash-icon.png",
           "imageWidth": 160,
-          "backgroundColor": "#FFE3EA"
+          "backgroundColor": "#FFD6E1"
         }
       ],
       "expo-sharing",
