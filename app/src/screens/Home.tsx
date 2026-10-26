@@ -227,11 +227,11 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   // The current day's content leaves as the roll progresses; the target's arrives.
   const dirSign = target?.dir ?? 1;
   const currentStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(roll.value, [0, 0.6], [1, 0], 'clamp'),
+    opacity: interpolate(roll.value, [0, 0.42], [1, 0], 'clamp'),
     transform: [{ translateY: roll.value * -24 * dirSign }],
   }));
   const targetStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(roll.value, [0.4, 1], [0, 1], 'clamp'),
+    opacity: interpolate(roll.value, [0.58, 1], [0, 1], 'clamp'),
     transform: [{ translateY: (1 - roll.value) * 24 * dirSign }],
   }));
 
