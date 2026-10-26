@@ -3,11 +3,11 @@ import { FlatList, Image, KeyboardAvoidingView, Platform, StyleSheet, TextInput,
 import Animated, { FadeIn, FadeOut, LinearTransition, useAnimatedStyle, useSharedValue, withRepeat, withTiming, type SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { entryMacros, parseLocally, toUnit, weekdayIndex, type Entry, type Settings } from '../engine';
+import { entryMacros, parseLocally, toUnit, type Entry, type Settings } from '../engine';
 import { n, t, locale } from '../i18n';
 import { addEntry } from '../store';
 import { retry } from '../analyzer';
-import { BLUSH, DAYS, FONT, INK, INK_FAINT, INK_HAIR, INK_SOFT, SHADOW, SHADOW_SM, SURFACE } from '../theme';
+import { BLUSH, FONT, INK, INK_FAINT, INK_HAIR, INK_SOFT, SHADOW, SHADOW_SM, SURFACE } from '../theme';
 import { EASE_OUT } from '../ui/motion';
 import { Pressy, T, haptic } from '../ui/kit';
 import { CloseIcon, LockIcon, PencilIcon, PlateIcon, RetryIcon, SendIcon } from '../ui/Icons';
@@ -135,7 +135,7 @@ export function SideNotes({
   const scrim = useAnimatedStyle(() => ({ opacity: progress.value * 0.3 }));
   const rules = useMemo(() => Array.from({ length: 30 }, (_, i) => i), []);
   const top = insets.top + 12 + 56; // where the first line starts, under the header
-  const dayName = DAYS[weekdayIndex(day)].name;
+  const dayName = new Date(`${day}T12:00:00`).toLocaleDateString(locale, { weekday: 'long' });
 
   const submit = () => {
     const v = text.trim();

@@ -63,14 +63,14 @@ FRAMES = {
     "en-US": [
         ("01-home.png", "Snap your food. That’s it."),
         ("02-notes.png", "Fix or type anything, instantly"),
-        ("03-yesterday.png", "A new colour every day"),
+        ("03-yesterday.png", "A forest that grows as you eat"),
         ("04-night.png", "Soft and calm after dark"),
         ("05-settings.png", "Estimates that lean your way"),
     ],
     "ja": [
         ("01-home.png", "撮るだけで、カロリー記録。"),
         ("02-notes.png", "入力も修正も、すぐに。"),
-        ("03-yesterday.png", "毎日ちがう色で楽しく"),
+        ("03-yesterday.png", "食べるほど育つ、毎日の森"),
         ("04-night.png", "夜はやさしいナイトモード"),
         ("05-settings.png", "見積もりはあなた好みに"),
     ],

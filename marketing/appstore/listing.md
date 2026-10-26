@@ -38,7 +38,7 @@ Tap one button. Real Quick snaps your plate and counts the calories, protein, ca
 
 HOW IT WORKS
 • One big button: tap it and forget it. A live mini camera sits right next to it, so the photo is taken instantly.
-• Today’s calories and macros, front and centre, against your daily goal.
+• Today’s calories and macros, front and centre, against your daily goal — and a small 3D forest below that grows with what you eat, tilts with your phone, and turns when you overdo it.
 • Swipe up and down to visit other days. Every weekday has its own soft colour and object; after 8 pm everything turns into a calm night sheet.
 • Swipe left for the food list: fix a portion, remove something, or just type “2 eggs and toast”.
 • Share a live link with your partner: they see today and your history for as long as you keep sharing.
@@ -94,7 +94,7 @@ Real Quick – いちばん速いカロリー計算アプリ。
 
 使い方
 ・大きなボタンをタップしたら、あとは忘れてOK。横に小さなカメラプレビューがあるので、すぐに撮影できます。
-・今日のカロリーとPFCを、目標と一緒にひと目で。
+・今日のカロリーとPFCを、目標と一緒にひと目で。画面の下には小さな3Dの森。食べるほど育ち、スマホを傾けると動き、食べ過ぎると枯れてしまいます。
 ・上下にスワイプで他の日へ。曜日ごとにやさしい色とオブジェが変わり、20時以降は落ち着いた夜の画面に。
 ・左にスワイプで食事リスト。量の修正、削除、「卵2個とトースト」のような入力もできます。
 ・パートナーにライブのリンクをシェア。シェアしている間、今日の記録と履歴を見てもらえます。
@@ -199,7 +199,7 @@ the composer adds the canonical 9:41 status bar.
 |---|---|---|
 | 1 | Snap your food. That's it. | 撮るだけで、カロリー記録。 |
 | 2 | Fix or type anything, instantly | 入力も修正も、すぐに。 |
-| 3 | A new colour every day | 毎日ちがう色で楽しく |
+| 3 | A forest that grows as you eat | 食べるほど育つ、毎日の森 |
 | 4 | Soft and calm after dark | 夜はやさしいナイトモード |
 | 5 | Estimates that lean your way | 見積もりはあなた好みに |
 

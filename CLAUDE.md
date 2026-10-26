@@ -15,8 +15,8 @@ brief and is deliberate.
 | Native components, system light/dark | **Fully branded UI** (Plus Jakarta Sans, soft-clay surfaces, one soft-3D object per weekday, pastel gradients); follows the clock (off-white night look 20:00–05:59) instead of system appearance | Brief: "I don't want native UI … branded and fun"; Karol's review: refined, no bounces, no emoji |
 | 12–25 screen quiz funnel | **5 short screens** that collect real settings (goal, estimate bias, camera) + a 3-tip tour, then a soft paywall | Brief: "don't make complicated onboarding" |
 | TipKit tooltips | On-screen hints on today's page for the first snaps + a visible notes tab | No TipKit in RN; hints fade out after 4 snaps |
-| Unlimited free tier | **3 AI counts/day free**, Pro unlimited (gateway-enforced) | Every count has model cost (BLUEPRINT §4 marginal-cost rule) |
-| Zero third-party deps | Expo modules + reanimated/gesture-handler/svg, `expo-iap`, `@bacons/apple-targets`, `react-native-android-widget` | Each justified in `marketing/appstore/app-privacy.md` |
+| Unlimited free tier | **3 free days**, then everything behind Pro (gateway-enforced per install); no store trial | Every count has model cost (BLUEPRINT §4); Karol, 27 Oct 2026 |
+| Zero third-party deps | Expo modules + reanimated/gesture-handler/svg, `expo-iap`, `@bacons/apple-targets`, `react-native-android-widget`, `expo-gl` + `three` + `expo-sensors` for the forest | Each justified in `marketing/appstore/app-privacy.md` |
 | `xcodebuild` UI tests + simulator capture pass | Jest engine/i18n tests; store captures from the web build of the same code (`marketing/appstore/capture.js`) | Expo project; no Mac in the cloud build session |
 
 ## Layout
@@ -25,7 +25,9 @@ brief and is deliberate.
 app/                  Expo app (CNG: ios/ and android/ are generated, never committed)
   src/engine/         pure logic + Jest tests (nutrition, days, local food table, validation)
   src/                store, gateway client, analysis queue, photos, i18n (en + ja), IAP
-  src/components/     day page, capture bar, side notes, sheets, paywall, share card
+  src/components/     day page, capture bar, notebook food list, macro chips, sheets, paywall, share sheet
+  src/forest/         the 3D forest (expo-gl + three, procedural): scene.ts, Forest.tsx
+  src/share.ts        live sharing: pushes day summaries to the gateway while on
   src/widgets/        widget snapshot + Android widgets (react-native-android-widget)
   targets/widget/     iOS WidgetKit extension (Swift) via @bacons/apple-targets
   plugins/            config plugins (iPhone-only)
@@ -67,6 +69,12 @@ verified on a real device or via EAS.
   missing Japanese key or placeholder.
 - Widgets read only the App Group / AsyncStorage snapshot
   (`src/widgets/snapshot.ts`), never the network.
+- Money: the app is free for `TRIAL_DAYS` (3) from first launch, then every
+  count needs Pro — the gateway enforces it per install (`trial_over`), the
+  app gates snap/typing on `freeDaysLeft()`. No store intro offer, on purpose.
+- The forest is one GL scene owned by Home (`src/forest/Forest.tsx`); day
+  pages only draw the gradient, ring and hero. Keep it procedural (no model
+  files) and keep the frame cheap: ~25 trees, ~50 small plants, 220 points.
 - Look and motion rules live in `marketing/brand.md`: no outlines, no emoji,
   no springs or loops — every animation is a short ease-out from
   `src/ui/motion.ts`; illustration is only the clay set in `app/assets/art/`

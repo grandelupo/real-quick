@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import type { ExpoWebGLRenderingContext } from 'expo-gl';
 
-// The forest at the bottom of every day: a small low-poly world lit by a warm
-// sun, one biome per weekday. It grows with what you eat; past the goal it
-// overgrows and turns. Everything is procedural — no model files.
+// The forest at the bottom of every day: a small low-poly planet lit by a warm
+// sun, one biome per weekday standing on its top. It grows with what you eat;
+// past the goal it overgrows and turns. Changing day rolls the planet: the
+// next forest comes over the far horizon (or rises from the near edge going
+// back). Everything is procedural — no model files.
 
 export type Biome = 'meadow' | 'autumn' | 'lavender' | 'golden' | 'sakura' | 'winter' | 'tropical';
 /** Index 0 = Monday, matching theme.DAYS. */
@@ -34,8 +36,18 @@ const NIGHT_FOG = 0xece8f3;
 const SICK = new THREE.Color(0xb7a24a); // what foliage turns to past the goal
 const SICK_GROUND = new THREE.Color(0xb9a97c);
 
+interface PlantSet {
+  group: THREE.Group;
+  biome: Biome;
+  growth: number;
+  over: number;
+}
+
 interface Plant {
   group: THREE.Group;
+  /** Inner group that sways; the outer one is oriented to the planet's surface. */
+  body: THREE.Group;
+  set: PlantSet;
   kind: 'tree' | 'small' | 'weed';
   threshold: number;
   scale: number;
@@ -93,8 +105,21 @@ function rayTexture(): THREE.DataTexture {
   return t;
 }
 
-function groundHeight(x: number, z: number) {
-  return 0.18 * Math.sin(x * 0.55 + 1.3) * Math.cos(z * 0.45) + 0.1 * Math.sin(x * 1.3 + z * 0.9) - 0.06 * z;
+/** Planet radius: big enough that the ground reads as gentle hills, small enough for a horizon. */
+const R = 20;
+/** How far a day's forest sits around the planet from the one before/after it. */
+const STEP = 0.96;
+
+function hills(x: number, z: number) {
+  return 0.16 * Math.sin(x * 0.55 + 1.3) * Math.cos(z * 0.45) + 0.09 * Math.sin(x * 1.3 + z * 0.9);
+}
+
+/** A point on the planet for flat coordinates (x across, z towards the camera). */
+function surface(x: number, z: number, lift = 0): THREE.Vector3 {
+  const phi = x / R;
+  const theta = z / R;
+  const r = R + hills(x, z) + lift;
+  return new THREE.Vector3(r * Math.sin(phi) * Math.cos(theta), r * Math.cos(phi) * Math.cos(theta) - R, r * Math.sin(theta));
 }
 
 export class ForestScene {
@@ -105,17 +130,19 @@ export class ForestScene {
   private hemi: THREE.HemisphereLight;
   private sunSprite: THREE.Sprite;
   private rays: THREE.Mesh[] = [];
+  private planet = new THREE.Group();
   private ground: THREE.Mesh;
   private groundMat: THREE.MeshStandardMaterial;
   private fog: THREE.Fog;
   private plants: Plant[] = [];
+  private current: PlantSet | null = null;
+  private incoming: PlantSet | null = null;
+  private k = 0;
   private particles: THREE.Points;
   private particleVel: Float32Array;
   private particleMat: THREE.PointsMaterial;
   private dot = softDot();
   private biome: Biome = 'meadow';
-  private growth = 0;
-  private over = 0;
   private shownOver = 0;
   private night = false;
   private tilt = new THREE.Vector2();
@@ -147,16 +174,16 @@ export class ForestScene {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.toneMappingExposure = 0.98;
 
-    this.camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 60);
-    this.camera.position.set(0, 2.3, 8.6);
-    this.camera.lookAt(0, 1.0, -1);
+    this.camera = new THREE.PerspectiveCamera(34, width / height, 0.1, 60);
+    this.camera.position.set(0, 2.0, 7.2);
+    this.camera.lookAt(0, 1.1, -1.5);
 
-    this.fog = new THREE.Fog(PALETTES.meadow.fog, 7, 15);
+    this.fog = new THREE.Fog(PALETTES.meadow.fog, 9, 21);
     this.scene.fog = this.fog;
 
-    this.hemi = new THREE.HemisphereLight(0xfff4dc, 0x9fb08a, 0.95);
+    this.hemi = new THREE.HemisphereLight(0xfff4dc, 0x9fb08a, 0.7);
     this.scene.add(this.hemi);
     this.sun = new THREE.DirectionalLight(0xffe8bf, 1.7);
     this.sun.position.set(-4.5, 6.5, 2.5);
@@ -171,17 +198,17 @@ export class ForestScene {
     this.sun.shadow.bias = -0.0015;
     this.sun.shadow.radius = 4;
     this.scene.add(this.sun);
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.12));
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.06));
 
     // the sun itself, and a few soft rays leaning into the scene
     this.sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.dot, color: 0xfff3c8, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
-    this.sunSprite.position.set(-5.5, 5.2, -9);
-    this.sunSprite.scale.set(6, 6, 1);
+    this.sunSprite.position.set(-2.6, 4.3, -12);
+    this.sunSprite.scale.set(3.4, 3.4, 1);
     this.scene.add(this.sunSprite);
     const rayTex = rayTexture();
     for (let i = 0; i < 4; i++) {
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(0.9 + i * 0.3, 16), new THREE.MeshBasicMaterial({ map: rayTex, color: 0xfff0c0, transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-      m.position.set(-5.5 + i * 0.6, 5.2, -8.5);
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(0.9 + i * 0.3, 16), new THREE.MeshBasicMaterial({ map: rayTex, color: 0xfff0c0, transparent: true, opacity: 0.05, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+      m.position.set(-2.6 + i * 0.5, 4.1, -11);
       m.rotation.z = -0.55 - i * 0.12;
       m.rotation.x = 0.15;
       m.translateY(-7);
@@ -189,25 +216,32 @@ export class ForestScene {
       this.scene.add(m);
     }
 
-    // ground: gentle hills, fading out towards the horizon so the page shows through
-    const geo = new THREE.PlaneGeometry(34, 30, 60, 50);
-    geo.rotateX(-Math.PI / 2);
+    // ground: the planet, gentle hills on it, fading out towards the horizon so the page shows through
+    const geo = new THREE.SphereGeometry(R, 96, 72);
     const pos = geo.attributes.position as THREE.BufferAttribute;
-    for (let i = 0; i < pos.count; i++) pos.setY(i, groundHeight(pos.getX(i), pos.getZ(i)));
+    const v = new THREE.Vector3();
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i);
+      const lat = Math.asin(THREE.MathUtils.clamp(v.y / R, -1, 1));
+      const lon = Math.atan2(v.x, v.z);
+      v.multiplyScalar(1 + hills(lon * R * 0.5, lat * R * 0.5) / R);
+      pos.setXYZ(i, v.x, v.y, v.z);
+    }
     geo.computeVertexNormals();
+    this.scene.add(this.planet);
     this.groundMat = new THREE.MeshStandardMaterial({ color: PALETTES.meadow.ground, flatShading: true, roughness: 0.95, metalness: 0, transparent: true });
     this.groundMat.onBeforeCompile = (shader) => {
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', '#include <common>\nvarying float vFade;')
-        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvec4 wp = modelMatrix * vec4(transformed, 1.0);\nvFade = 1.0 - smoothstep(-6.5, -12.5, wp.z);');
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvec4 wp = modelMatrix * vec4(transformed, 1.0);\nvFade = (1.0 - smoothstep(-6.5, -12.5, wp.z)) * smoothstep(-9.0, -3.0, wp.y);');
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', '#include <common>\nvarying float vFade;')
         .replace('#include <dithering_fragment>', '#include <dithering_fragment>\ngl_FragColor.a *= vFade;');
     };
     this.ground = new THREE.Mesh(geo, this.groundMat);
-    this.ground.position.z = -4;
+    this.ground.position.y = -R;
     this.ground.receiveShadow = true;
-    this.scene.add(this.ground);
+    this.planet.add(this.ground);
 
     // particles: pollen, petals, leaves, snow or sparks depending on the biome
     const N = 220;
@@ -225,16 +259,83 @@ export class ForestScene {
 
   // ---------------------------------------------------------------- state --
 
+  /** Show a day's forest outright (first paint, deep links). */
   setDay(weekday: number, immediate = false) {
     const biome = BIOME_BY_DAY[((weekday % 7) + 7) % 7];
-    if (biome === this.biome && this.plants.length && !immediate) return;
+    if (this.current && biome === this.current.biome && !immediate) return;
+    this.dropIncoming();
+    if (this.current) this.dropSet(this.current);
+    this.current = this.buildSet(biome, weekday, 0);
+    this.planet.rotation.x = 0;
+    this.k = 0;
+    this.applyBiome(biome, immediate);
+    if (immediate) {
+      for (const pl of this.plants) {
+        pl.scale = pl.target = this.targetFor(pl);
+        pl.group.scale.setScalar(pl.scale);
+      }
+    }
+  }
+
+  setGrowth(growth: number, over: number) {
+    if (!this.current) return;
+    this.current.growth = Math.min(1, Math.max(0, growth));
+    this.current.over = Math.min(1, Math.max(0, over));
+  }
+
+  /**
+   * The roll to another day. `dir` +1: the next forest waits beyond the far
+   * horizon and the planet rolls it in; −1: it waits past the near edge and
+   * rises. `setRoll(k)` with k in [0, 1] drives it; commit or cancel ends it.
+   */
+  beginRoll(dir: 1 | -1, weekday: number, growth: number, over: number) {
+    this.dropIncoming();
+    const biome = BIOME_BY_DAY[((weekday % 7) + 7) % 7];
+    this.incoming = this.buildSet(biome, weekday, -dir * STEP);
+    this.incoming.growth = Math.min(1, Math.max(0, growth));
+    this.incoming.over = Math.min(1, Math.max(0, over));
+    this.rollDir = dir;
+    // the incoming forest is already fully grown when it appears
+    for (const pl of this.plants) {
+      if (pl.set === this.incoming) {
+        pl.scale = pl.target = this.targetFor(pl);
+        pl.group.scale.setScalar(Math.max(0.001, pl.scale));
+      }
+    }
+  }
+
+  setRoll(k: number) {
+    this.k = Math.min(1, Math.max(0, k));
+    this.planet.rotation.x = this.rollDir * this.k * STEP;
+  }
+
+  commitRoll() {
+    if (!this.incoming) return;
+    if (this.current) this.dropSet(this.current);
+    this.current = this.incoming;
+    this.incoming = null;
+    this.current.group.rotation.x = 0;
+    // keep the ground where it is in the world while the frame of reference resets
+    this.ground.rotation.x += this.rollDir * STEP;
+    this.planet.rotation.x = 0;
+    this.k = 0;
+    this.applyBiome(this.current.biome, false);
+  }
+
+  cancelRoll() {
+    this.dropIncoming();
+    this.planet.rotation.x = 0;
+    this.k = 0;
+  }
+
+  private rollDir: 1 | -1 = 1;
+
+  private applyBiome(biome: Biome, immediate: boolean) {
     this.biome = biome;
-    for (const pl of this.plants) pl.dying = true;
-    this.buildPlants(biome, weekday);
     const pal = PALETTES[biome];
     this.targetGround.set(pal.ground);
     this.targetFog.set(this.night ? NIGHT_FOG : pal.fog);
-    this.targetParticle.set(pal.particle);
+    this.targetParticle.set(this.night ? 0xfff2a0 : pal.particle);
     this.particleMat.blending = pal.particleKind === 'spark' || pal.particleKind === 'float' ? THREE.AdditiveBlending : THREE.NormalBlending;
     this.particleMat.size = pal.particleKind === 'snow' ? 0.13 : pal.particleKind === 'fall' ? 0.14 : 0.1;
     const pos = this.particles.geometry.attributes.position as THREE.BufferAttribute;
@@ -244,16 +345,26 @@ export class ForestScene {
       this.groundMat.color.copy(this.targetGround);
       this.fog.color.copy(this.targetFog);
       this.particleMat.color.copy(this.targetParticle);
-      for (const pl of this.plants) {
-        pl.scale = pl.target = this.targetFor(pl);
-        pl.group.scale.setScalar(pl.scale);
-      }
     }
   }
 
-  setGrowth(growth: number, over: number) {
-    this.growth = Math.min(1, Math.max(0, growth));
-    this.over = Math.min(1, Math.max(0, over));
+  private dropIncoming() {
+    if (this.incoming) this.dropSet(this.incoming);
+    this.incoming = null;
+  }
+
+  private dropSet(set: PlantSet) {
+    for (let i = this.plants.length - 1; i >= 0; i--) {
+      const pl = this.plants[i];
+      if (pl.set !== set) continue;
+      pl.group.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        if (mesh.isMesh) mesh.geometry.dispose();
+      });
+      for (const m of pl.mats) m.dispose();
+      this.plants.splice(i, 1);
+    }
+    this.planet.remove(set.group);
   }
 
   setNight(night: boolean) {
@@ -279,17 +390,34 @@ export class ForestScene {
 
   private targetFor(pl: Plant) {
     if (pl.dying) return 0;
-    if (pl.kind === 'weed') return this.over;
-    const g = smoothstep(pl.threshold, pl.threshold + 0.3, this.growth);
-    return g * (pl.kind === 'tree' ? 1 + 0.22 * this.over : 1 + 0.1 * this.over);
+    const { growth, over } = pl.set;
+    if (pl.kind === 'weed') return over;
+    const g = pl.threshold === 0 ? 0.7 + 0.3 * smoothstep(0, 0.3, growth) : smoothstep(pl.threshold, pl.threshold + 0.3, growth);
+    return g * (pl.kind === 'tree' ? 1 + 0.22 * over : 1 + 0.1 * over);
   }
 
-  private buildPlants(biome: Biome, seed: number) {
+  /** One day's forest, standing on the planet, rotated `offset` around it (0 = on top, in view). */
+  private buildSet(biome: Biome, seed: number, offset: number): PlantSet {
+    const set: PlantSet = { group: new THREE.Group(), biome, growth: 0, over: 0 };
+    set.group.rotation.x = offset;
+    this.planet.add(set.group);
+    this.buildPlants(set, seed);
+    return set;
+  }
+
+  private buildPlants(set: PlantSet, seed: number) {
+    const biome = set.biome;
     const pal = PALETTES[biome];
     const r = rand(1234 + seed * 97 + biome.length * 31);
-    const add = (group: THREE.Group, kind: Plant['kind'], threshold: number, sway: number, mats: THREE.MeshStandardMaterial[], x: number, z: number) => {
-      group.position.set(x, groundHeight(x, z + 4) - 0.02, z);
-      group.rotation.y = r() * Math.PI * 2;
+    const up = new THREE.Vector3(0, 1, 0);
+    const add = (body: THREE.Group, kind: Plant['kind'], threshold: number, sway: number, mats: THREE.MeshStandardMaterial[], x: number, z: number) => {
+      const group = new THREE.Group();
+      const at = surface(x, z, -0.02);
+      group.position.copy(at);
+      const normal = at.clone().add(new THREE.Vector3(0, R, 0)).normalize();
+      group.quaternion.setFromUnitVectors(up, normal);
+      body.rotation.y = r() * Math.PI * 2;
+      group.add(body);
       group.scale.setScalar(0.001);
       group.traverse((o) => {
         if ((o as THREE.Mesh).isMesh) {
@@ -297,15 +425,15 @@ export class ForestScene {
           o.receiveShadow = kind !== 'tree';
         }
       });
-      this.scene.add(group);
-      this.plants.push({ group, kind, threshold, scale: 0.001, target: 0, dying: false, sway, phase: r() * Math.PI * 2, speed: 0.9 + r() * 0.6, mats });
+      set.group.add(group);
+      this.plants.push({ group, body, set, kind, threshold, scale: 0.001, target: 0, dying: false, sway, phase: r() * Math.PI * 2, speed: 0.9 + r() * 0.6, mats });
     };
     const spots: [number, number][] = [];
-    const pick = (minZ: number, maxZ: number, minX = -7.5, maxX = 7.5, tries = 12, gap = 0.9) => {
+    const pick = (minZ: number, maxZ: number, minX = -4.8, maxX = 4.8, tries = 12, gap = 0.9) => {
       for (let i = 0; i < tries; i++) {
         const x = minX + r() * (maxX - minX);
         const z = minZ + r() * (maxZ - minZ);
-        if (Math.abs(x) < 1.6 && z > 1.2) continue; // keep the middle front open
+        if (Math.abs(x) < 1.1 && z > 0.9) continue; // keep the middle front open
         if (spots.every(([sx, sz]) => (sx - x) ** 2 + (sz - z) ** 2 > gap * gap)) {
           spots.push([x, z]);
           return [x, z] as [number, number];
@@ -315,27 +443,29 @@ export class ForestScene {
     };
 
     // trees: a back row, a middle row, two or three in front
-    const treeCount = biome === 'lavender' ? 7 : 11;
+    const treeCount = biome === 'lavender' ? 9 : 14;
     for (let i = 0; i < treeCount; i++) {
-      const row = i < 5 ? [-7, -4] : i < 9 ? [-3.5, -0.5] : [0, 2.2];
-      const s = pick(row[0], row[1], -7.5, 7.5, 14, i < 5 ? 1.1 : 1.6);
+      const row = i < 6 ? [-7, -4] : i < 11 ? [-3.5, -0.8] : [-0.3, 2.0];
+      const s = pick(row[0], row[1], i < 6 ? -6 : -4.6, i < 6 ? 6 : 4.6, 16, i < 6 ? 1.0 : 1.5);
       if (!s) continue;
       const { group, mats } = this.makeTree(biome, pal, r);
-      const size = (i < 5 ? 1.15 : i < 9 ? 1.0 : 0.85) * (0.85 + r() * 0.35);
+      const size = (i < 6 ? 1.4 : i < 11 ? 1.2 : 1.0) * (0.85 + r() * 0.35);
       group.children.forEach((c) => c.scale.multiplyScalar(size));
-      add(group, 'tree', i < 5 ? r() * 0.25 : 0.12 + r() * 0.55, 0.025, mats, s[0], s[1]);
+      // a few trees in every row are always there; the rest come with the day's intake
+      const always = i < 2 || i === 6 || i === 7 || i === 11;
+      add(group, 'tree', always ? 0 : i < 6 ? r() * 0.2 : 0.1 + r() * 0.6, 0.025, mats, s[0], s[1]);
     }
     // small plants: flowers, bushes, grass, lavender, sunflowers…
     const smallCount = biome === 'winter' ? 26 : 46;
     for (let i = 0; i < smallCount; i++) {
-      const s = pick(-5, 2.8, -7.5, 7.5, 10, 0.45);
+      const s = pick(-5, 2.6, -4.6, 4.6, 10, 0.42);
       if (!s) continue;
       const { group, mats } = this.makeSmall(biome, pal, r);
-      add(group, 'small', 0.05 + r() * 0.85, 0.07, mats, s[0], s[1]);
+      add(group, 'small', i < 10 ? 0 : 0.05 + r() * 0.85, 0.07, mats, s[0], s[1]);
     }
     // weeds: only when over the goal
     for (let i = 0; i < 14; i++) {
-      const s = pick(-4, 2.6, -7, 7, 8, 0.6);
+      const s = pick(-4, 2.4, -4.4, 4.4, 8, 0.6);
       if (!s) continue;
       const { group, mats } = this.makeWeed(r);
       add(group, 'weed', 0, 0.05, mats, s[0], s[1]);
@@ -375,21 +505,21 @@ export class ForestScene {
       let y = 0;
       let x = 0;
       for (let i = 0; i < 6; i++) {
-        const seg = new THREE.Mesh(new THREE.CylinderGeometry(0.07 - i * 0.004, 0.085 - i * 0.004, 0.36, 6), trunkMat);
-        seg.position.set(x, y + 0.18, 0);
+        const seg = new THREE.Mesh(new THREE.CylinderGeometry(0.09 - i * 0.005, 0.11 - i * 0.005, 0.44, 6), trunkMat);
+        seg.position.set(x, y + 0.22, 0);
         seg.rotation.z = -0.08 * i;
         group.add(seg);
-        y += 0.34;
-        x += 0.05 * i;
+        y += 0.42;
+        x += 0.06 * i;
       }
       const leafMat = this.std(pickF(), { side: THREE.DoubleSide });
       mats.push(leafMat);
-      for (let i = 0; i < 8; i++) {
-        const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.35, 4), leafMat);
-        leaf.scale.z = 0.25;
-        const a = (i / 8) * Math.PI * 2;
-        leaf.position.set(x + Math.cos(a) * 0.5, y + 0.05 - 0.12, Math.sin(a) * 0.5);
-        leaf.rotation.set(Math.sin(a) * 1.25, 0, -Math.cos(a) * 1.25);
+      for (let i = 0; i < 7; i++) {
+        const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.2, 1.6, 6), leafMat);
+        leaf.scale.z = 0.45;
+        const a = (i / 7) * Math.PI * 2 + 0.3;
+        leaf.position.set(x + Math.cos(a) * 0.58, y - 0.12, Math.sin(a) * 0.58);
+        leaf.rotation.set(Math.sin(a) * 1.42, 0, -Math.cos(a) * 1.42);
         group.add(leaf);
       }
       const coco = this.std(0x6b4a33);
@@ -532,51 +662,47 @@ export class ForestScene {
     // colours ease towards the day/night targets
     this.fog.color.lerp(this.targetFog, Math.min(1, dt * 3));
     this.particleMat.color.lerp(this.targetParticle, Math.min(1, dt * 3));
-    this.shownOver += (this.over - this.shownOver) * Math.min(1, dt * 2.5);
-    const g = new THREE.Color().copy(this.targetGround).lerp(SICK_GROUND, this.shownOver * 0.7);
+    const over = this.incoming ? THREE.MathUtils.lerp(this.current?.over ?? 0, this.incoming.over, this.k) : this.current?.over ?? 0;
+    this.shownOver += (over - this.shownOver) * Math.min(1, dt * 2.5);
+    // during a roll the ground and the haze mix towards the incoming biome
+    const inPal = this.incoming ? PALETTES[this.incoming.biome] : null;
+    const groundTarget = inPal ? new THREE.Color().copy(this.targetGround).lerp(new THREE.Color(inPal.ground), this.k) : this.targetGround.clone();
+    if (inPal) this.fog.color.lerp(new THREE.Color(this.night ? NIGHT_FOG : inPal.fog), this.k * Math.min(1, dt * 3));
+    const g = groundTarget.lerp(SICK_GROUND, this.shownOver * 0.7);
     this.groundMat.color.lerp(g, Math.min(1, dt * 3));
 
     // light: warm sun by day, cool moon by night
     const nightK = this.night ? 1 : 0;
     this.sun.intensity += ((this.night ? 0.55 : 1.7) - this.sun.intensity) * Math.min(1, dt * 3);
     this.sun.color.lerp(new THREE.Color(this.night ? 0xb9c6ff : 0xffe8bf), Math.min(1, dt * 3));
-    this.hemi.intensity += ((this.night ? 0.45 : 0.95) - this.hemi.intensity) * Math.min(1, dt * 3);
+    this.hemi.intensity += ((this.night ? 0.4 : 0.7) - this.hemi.intensity) * Math.min(1, dt * 3);
     this.hemi.color.lerp(new THREE.Color(this.night ? 0x9aa8ff : 0xfff4dc), Math.min(1, dt * 3));
-    (this.sunSprite.material as THREE.SpriteMaterial).opacity += ((this.night ? 0 : 0.95) - (this.sunSprite.material as THREE.SpriteMaterial).opacity) * Math.min(1, dt * 3);
+    (this.sunSprite.material as THREE.SpriteMaterial).opacity += ((this.night ? 0 : 0.7) - (this.sunSprite.material as THREE.SpriteMaterial).opacity) * Math.min(1, dt * 3);
     this.rays.forEach((ray, i) => {
       const m = ray.material as THREE.MeshBasicMaterial;
-      m.opacity = (1 - nightK) * (0.05 + 0.045 * (0.5 + 0.5 * Math.sin(t * 0.5 + i * 1.7)));
+      m.opacity = (1 - nightK) * (0.03 + 0.035 * (0.5 + 0.5 * Math.sin(t * 0.5 + i * 1.7)));
     });
 
     // camera: device tilt plus a very slow drift
     this.tilt.lerp(this.tiltTarget, Math.min(1, dt * 4));
     this.camera.position.x = this.tilt.x * 1.1 + Math.sin(t * 0.11) * 0.12;
-    this.camera.position.y = 2.3 - this.tilt.y * 0.7 + Math.sin(t * 0.17) * 0.05;
-    this.camera.lookAt(0, 1.0, -1);
+    this.camera.position.y = 2.0 - this.tilt.y * 0.7 + Math.sin(t * 0.17) * 0.05;
+    this.camera.lookAt(0, 1.1, -1.5);
 
     // plants: grow, die, sway, turn
     const wind = 1 + 0.35 * Math.sin(t * 0.37);
     for (let i = this.plants.length - 1; i >= 0; i--) {
       const pl = this.plants[i];
       pl.target = this.targetFor(pl);
-      pl.scale += (pl.target - pl.scale) * Math.min(1, dt * (pl.dying ? 6 : 2.6));
-      if (pl.dying && pl.scale < 0.01) {
-        this.scene.remove(pl.group);
-        pl.group.traverse((o) => {
-          const mesh = o as THREE.Mesh;
-          if (mesh.isMesh) mesh.geometry.dispose();
-        });
-        for (const m of pl.mats) m.dispose();
-        this.plants.splice(i, 1);
-        continue;
-      }
+      pl.scale += (pl.target - pl.scale) * Math.min(1, dt * 2.6);
       const s = Math.max(0.001, pl.scale);
       pl.group.scale.set(s, s, s);
-      const droop = pl.kind === 'tree' ? -0.16 * this.shownOver : -0.3 * this.shownOver;
-      pl.group.rotation.z = droop + Math.sin(t * pl.speed * 1.3 + pl.phase) * pl.sway * wind;
-      pl.group.rotation.x = Math.sin(t * pl.speed * 0.9 + pl.phase * 1.3) * pl.sway * 0.5 * wind;
+      const setOver = pl.set.over;
+      const droop = pl.kind === 'tree' ? -0.16 * setOver : -0.3 * setOver;
+      pl.body.rotation.z = droop + Math.sin(t * pl.speed * 1.3 + pl.phase) * pl.sway * wind;
+      pl.body.rotation.x = Math.sin(t * pl.speed * 0.9 + pl.phase * 1.3) * pl.sway * 0.5 * wind;
       if (pl.kind !== 'weed') {
-        for (const m of pl.mats) m.color.copy(m.userData.base as THREE.Color).lerp(SICK, this.shownOver * 0.85);
+        for (const m of pl.mats) m.color.copy(m.userData.base as THREE.Color).lerp(SICK, setOver * 0.85);
       }
     }
 

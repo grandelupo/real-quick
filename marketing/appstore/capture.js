@@ -51,7 +51,7 @@ function state(locale) {
       e('y', '2026-10-25', '19:30', 'yesterday'),
     ],
     totalSnaps: 2, buttonResetAt: 0, isPro: false,
-    installId: '5f0c8d1e-1111-4222-8333-000000000001', firstDay: '2026-10-01',
+    installId: '5f0c8d1e-1111-4222-8333-000000000001', firstDay: '2026-10-25',
   };
 }
 
@@ -85,10 +85,11 @@ async function page(browser, locale, hour) {
     await p.close();
 
     p = await page(browser, locale, 17);
-    await p.evaluate((h) => {
-      const el = [...document.querySelectorAll('div')].find((d) => { const s = getComputedStyle(d); return (s.overflowY === 'scroll' || s.overflowY === 'auto') && d.scrollHeight > d.clientHeight + 100; });
-      el.scrollTop = el.clientHeight; el.dispatchEvent(new Event('scroll'));
-    });
+    // roll the planet one day back: a swipe up
+    await p.mouse.move(220, 520);
+    await p.mouse.down();
+    for (let i = 1; i <= 14; i++) await p.mouse.move(220, 520 - i * 24, { steps: 1 });
+    await p.mouse.up();
     await p.waitForTimeout(1800);
     await shot(p, '03-yesterday.png');
     await p.close();

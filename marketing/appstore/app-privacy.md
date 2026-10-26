@@ -63,7 +63,7 @@ grep -rn "Permission\|requestPerm" src | grep -v "^src/i18n"
 | expo-iap | StoreKit 2 / Play Billing | Apple/Google's own collection |
 | @bacons/apple-targets | iOS widgets + App Group storage | local only |
 | react-native-android-widget | Android widgets | local only |
-| expo-sharing, react-native-view-shot | share card image | user-initiated, system sheet |
+| expo-gl, expo-sensors, three | the 3D forest and its tilt parallax | on-device; motion data never leaves the phone |
 | async-storage, expo-file-system, expo-image-manipulator | local storage of diary + photos | local only |
 | expo-localization, expo-haptics, expo-crypto, reanimated, gesture-handler, svg, safe-area, fonts, splash | UI | none |
 
@@ -75,3 +75,14 @@ Any new SDK, a second network endpoint, accounts, analytics or crash
 reporting, storing photos server-side, cloud sync, or a different model
 provider (update the privacy policy's processor list) re-opens every answer
 above.
+
+## Live sharing (added 27 Oct 2026)
+
+Opt-in. While on, the app sends **Health & Fitness ▸ Fitness** data (daily
+calorie and macro totals), **User Content ▸ Other User Content** (meal
+titles) and the name the user types for themselves to the gateway, stored
+under a random token until the user stops sharing. Not linked to identity
+(no account; the install id is random), not used for tracking. Declare under
+App Functionality. Photos are never shared. The gateway also keeps each
+install's first-count day (for the 3 free days) — covered by the existing
+**Identifiers ▸ Device ID** row.

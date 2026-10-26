@@ -1,12 +1,15 @@
 # Real Quick — handoff
 
-State on 26 Oct 2026, after the redesign (soft-clay look, Plus Jakarta Sans,
-one soft-3D object per weekday, new icon — see `marketing/brand.md`).
+State on 27 Oct 2026, after the redesign (soft-clay look, Plus Jakarta Sans,
+one soft-3D object per weekday, the 3D forest, live sharing, 3 free days —
+see `marketing/brand.md` and `CLAUDE.md`).
 
 ## Done
 
 - **Gateway** live at `https://realquick.lab.karolkrakowski.pl` (VPS port
-  8099, `server/deploy.sh --key`), model Opus 5.5, `/healthz` ok.
+  8099, `server/deploy.sh --key`), model Opus 5.5, `/healthz` ok. It enforces
+  the 3 free days per install (`installs.json`) and hosts the live share
+  pages (`/s/<token>`, `shares.json`); Caddy routes `/s/*` to it.
 - **Legal pages** on karolkrakowski.pl (`apps/real-quick/privacy.htm`,
   `support.htm`), **product site** + waitlist record, **Play feature
   graphic** and 512 icon (`marketing/play/out/graphics/`).
@@ -14,12 +17,12 @@ one soft-3D object per weekday, new icon — see `marketing/brand.md`).
   `marketing/appstore/asc-setup.py`: free price, 175 territories, category,
   copyright, en-US + ja listing, review contact and notes, both
   subscriptions (group *Real Quick Pro*, prices in every territory — US
-  $4.99 / $29.99, Japan ¥800 / ¥5,000 — 1-week free trial, review
+  $4.99 / $29.99, Japan ¥800 / ¥5,000 — **no intro trial**, review
   screenshots), age rating 4+. Screenshots: `asc-setup.py shots`.
-- **Builds**: 1 (the first look) and 2 (the redesign) uploaded with
-  `xcodebuild archive` + `-exportArchive` (`app/ios/build/ship/export.plist`);
-  signing through the Xcode account, team H85T7F9AS6. The widget target
-  compiles; both targets carry the App Group.
+- **Builds**: 1 (first look), 2 (redesign), 3 (forest, sharing, free days)
+  uploaded with `xcodebuild archive` + `-exportArchive`
+  (`app/ios/build/ship/export.plist`); signing through the Xcode account,
+  team H85T7F9AS6. Both targets carry the App Group.
 
 ## Before "Submit for Review"
 
@@ -28,9 +31,8 @@ one soft-3D object per weekday, new icon — see `marketing/brand.md`).
    then check: a typed meal through `/v1/analyze` returns items.
 2. **App Privacy** answers in App Store Connect — not in the API. Fill from
    `marketing/appstore/app-privacy.md`.
-3. Attach build 2 to version 1.0 and submit:
-   `app-builder/.venv/bin/python app-builder/asc.py version attach-build com.latovi.realquick --build 2`
-   then `… asc.py submit com.latovi.realquick`.
+3. Build 3 is attached to 1.0; submit with
+   `app-builder/.venv/bin/python app-builder/asc.py submit com.latovi.realquick`.
 
 ## Then
 
@@ -41,8 +43,10 @@ one soft-3D object per weekday, new icon — see `marketing/brand.md`).
 - **Google Play**: see `marketing/play/listing.md`; build with
   `npx eas-cli build -p android --profile production`; receipt verification
   needs a service-account JSON on the VPS (`GOOGLE_SERVICE_ACCOUNT_FILE`).
-- **Verify on devices**: snap, Lock Screen *Snap* widget and the iOS 18
-  control, Today widget, the trial with a sandbox account.
+- **Verify on devices**: snap, the forest (tilt, wind, growth over a day,
+  overgrowth past the goal, night), Lock Screen *Snap* widget and the iOS 18
+  control, Today widget, live sharing from Settings or the share button, a
+  sandbox purchase on day 4 (set the phone's date forward).
 - **Portfolio**: `python3 app-builder/portfolio.py real-quick` and
   `marketing/portfolio.sql` once the app is live (needs the store link).
 
@@ -53,5 +57,6 @@ one soft-3D object per weekday, new icon — see `marketing/brand.md`).
   snap; Android does.
 - Android has not been built on this machine (no SDK); EAS builds it.
 - The web preview and the store captures are the real app rendered with
-  react-native-web; the native build was compiled and archived but not run on
-  a device by me.
+  react-native-web (the forest included, via WebGL); the native build was
+  compiled and archived but not run on a device by me — the forest's frame
+  rate and the tilt parallax are the two things to feel on a phone first.

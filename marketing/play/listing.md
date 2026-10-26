@@ -15,7 +15,7 @@ Full description: reuse the App Store description from
 `marketing/appstore/listing.md`, replacing the subscription paragraph with:
 
 ```
-Payment is charged to your Google Play account at the end of the free trial. Subscriptions renew automatically unless cancelled before the renewal date in Google Play ▸ Profile ▸ Payments & subscriptions ▸ Subscriptions.
+Payment is charged to your Google Play account at confirmation of purchase. Subscriptions renew automatically unless cancelled before the renewal date in Google Play ▸ Profile ▸ Payments & subscriptions ▸ Subscriptions.
 ```
 
 and "Lock Screen widget / control" with "the 1×1 Snap home-screen widget: one tap opens the camera, snaps, confirms and closes again".
@@ -31,8 +31,8 @@ and "Lock Screen widget / control" with "the 1×1 Snap home-screen widget: one t
 
 | Product ID | Base plan id | Price | Offer |
 |---|---|---|---|
-| `com.latovi.realquick.pro.monthly` | `monthly` (auto-renewing, 1 month) | $4.99 | `trial-1w`: free trial, 1 week, new customers only |
-| `com.latovi.realquick.pro.yearly` | `yearly` (auto-renewing, 1 year) | $29.99 | `trial-1w`: free trial, 1 week, new customers only |
+| `com.latovi.realquick.pro.monthly` | `monthly` (auto-renewing, 1 month) | $4.99 | none — the app's first 3 days are the trial |
+| `com.latovi.realquick.pro.yearly` | `yearly` (auto-renewing, 1 year) | $29.99 | none |
 
 The app reads the offer token from the store (`src/iap.ts`), so offer ids can
 change without a release.
@@ -41,7 +41,7 @@ change without a release.
 
 | Question | Answer |
 |---|---|
-| Collects or shares user data? | Collects: **Photos** (Photos and videos), **Other user-generated content** (typed meals), **Device or other IDs** (random install id), **Purchase history**. Shared: none (the model provider acts as a service provider/processor, which Play does not count as sharing). |
+| Collects or shares user data? | Collects: **Photos** (Photos and videos), **Other user-generated content** (typed meals), **Device or other IDs** (random install id), **Purchase history**; with live sharing on (opt-in): **Health and fitness** (daily totals) and typed meal titles, stored under a random link until the user stops. Shared: none (the model provider acts as a service provider/processor, which Play does not count as sharing). |
 | Processed ephemerally? | Photos and typed meals: **Yes** (not stored by us) |
 | Required or optional? | Photos: optional (typing works without the camera) · IDs, purchase history: required for the feature |
 | Purpose | App functionality (all) |

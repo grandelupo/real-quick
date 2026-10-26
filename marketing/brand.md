@@ -33,6 +33,17 @@ Depth comes from light, not lines. No outlines anywhere in the UI.
   onboarding, the paywall and the camera-off state. They are the only
   illustration in the app; no emoji, no doodles, no faces.
 
+## 3b. The forest
+
+The fun lives at the bottom of the home screen: a small low-poly 3D world
+(`app/src/forest/scene.ts`), lit by a warm sun, one biome per weekday —
+spring meadow, autumn wood, lavender field, golden savanna, cherry blossom,
+snowy pines, tropical palms. It grows with the day's intake; past the goal
+it overgrows, droops and turns yellow. It tilts with the phone, sways in a
+light wind, has petals, leaves, snow or pollen in the air, and a moonlit
+version at night. Everything is procedural: cones, spheres and cylinders
+with flat shading, no model files, so it stays small and consistent.
+
 ## 4. Palette
 
 | Role | Hex | Notes |

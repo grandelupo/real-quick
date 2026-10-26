@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, FlatList, Linking, StyleSheet, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import { AppState, Linking, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { FadeIn, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { FadeIn, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { addDays, dayKey, dayPages, dayTotals, freeDaysLeft, isNight, macroTargets, msUntilLookChange, weekdayIndex, type Entry } from '../engine';
@@ -10,7 +10,7 @@ import { entriesFor, markSeen, useStore } from '../store';
 import { DAYS, INK, NIGHT_BG, SHADOW_SM, SURFACE } from '../theme';
 import { DayPage } from '../components/DayPage';
 import { MacroStrip } from '../components/MacroStrip';
-import { Forest } from '../forest/Forest';
+import { Forest, type ForestHandle } from '../forest/Forest';
 import { BAR_HEIGHT, CaptureBar, type CaptureHandle } from '../components/CaptureBar';
 import { SideNotes } from '../components/SideNotes';
 import { EditSheet } from '../components/EditSheet';
@@ -19,7 +19,7 @@ import { Paywall } from '../components/Paywall';
 import { ShareSheet } from '../components/ShareSheet';
 import { Toast, useToast } from '../components/Toast';
 import { CogIcon, NotesIcon, ShareIcon } from '../ui/Icons';
-import { TIMING } from '../ui/motion';
+import { EASE_OUT, TIMING } from '../ui/motion';
 import { Pressy, T, haptic } from '../ui/kit';
 
 /** Ticks at midnight and at the day/night boundaries so the look follows the clock. */
@@ -45,6 +45,9 @@ function snapIntent(url: string | null): { fromWidget: boolean } | null {
   if (!m) return null;
   return { fromWidget: /(^|&)from=widget(&|$)/.test(m[1] ?? '') };
 }
+
+/** How far a swipe has to travel to roll one day. */
+const ROLL_DISTANCE = 260;
 
 export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   const { width, height } = useWindowDimensions();
@@ -76,8 +79,8 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   const locked = !isPro && daysLeft === 0;
   const trialNote = isPro ? undefined : daysLeft === 0 ? t('trialOver') : daysLeft === 1 ? t('trialLastDay') : t('trialDaysLeft', { n: daysLeft });
 
-  const list = useRef<FlatList<string>>(null);
   const capture = useRef<CaptureHandle>(null);
+  const forest = useRef<ForestHandle>(null);
   const toast = useToast();
 
   useEffect(() => {
@@ -93,24 +96,72 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
     if (!fresh && editOpen) setEditOpen(false);
   }, [entries, editing, editOpen]);
 
-  // --- deep links: realquick://snap (widgets, lock-screen control) ---------
-  const handleUrl = useCallback((url: string | null) => {
-    const intent = snapIntent(url);
-    if (!intent) return;
-    setSettingsOpen(false);
-    setPaywallOpen(false);
-    setEditOpen(false);
-    setShareOpen(false);
-    list.current?.scrollToOffset({ offset: 0, animated: false });
-    setIndex(0);
-    capture.current?.autoSnap(intent.fromWidget);
-  }, []);
+  // --- the day roll: swipe up for the day before, down for the day after ----
+  // `roll` is 0…1 along the way to `target`; the planet rolls with it and the
+  // day's content crossfades. Direction +1 = older day (the planet rolls
+  // forward, the next forest comes over the far horizon).
+  const roll = useSharedValue(0);
+  const [target, setTarget] = useState<{ index: number; dir: 1 | -1 } | null>(null);
+  const targetRef = useRef(target);
+  targetRef.current = target;
 
-  useEffect(() => {
-    void Linking.getInitialURL().then(handleUrl);
-    const sub = Linking.addEventListener('url', (e) => handleUrl(e.url));
-    return () => sub.remove();
-  }, [handleUrl]);
+  const dayState = useCallback(
+    (day: string) => {
+      const totals = dayTotals(entriesFor(day, entries));
+      const ratio = settings.goalKcal > 0 ? totals.kcal / settings.goalKcal : 0;
+      return { totals, growth: Math.min(1, ratio), over: Math.min(1, Math.max(0, (ratio - 1.05) / 0.5)) };
+    },
+    [entries, settings.goalKcal],
+  );
+
+  const beginRoll = useCallback(
+    (dir: 1 | -1) => {
+      const next = index + dir;
+      if (next < 0 || next >= pages.length) return;
+      const day = pages[next];
+      const st = dayState(day);
+      forest.current?.beginRoll(dir, weekdayIndex(day), st.growth, st.over);
+      setTarget({ index: next, dir });
+    },
+    [index, pages, dayState],
+  );
+  const finishRoll = useCallback(
+    (commit: boolean) => {
+      const tg = targetRef.current;
+      if (commit && tg) {
+        forest.current?.commitRoll();
+        setIndex(tg.index);
+        haptic('light');
+        markSeen('scroll');
+      } else {
+        forest.current?.cancelRoll();
+      }
+      roll.value = 0;
+      setTarget(null);
+    },
+    [roll],
+  );
+
+  const dayPan = Gesture.Pan()
+    .activeOffsetY([-18, 18])
+    .failOffsetX([-14, 14])
+    .onChange((e) => {
+      const dir: 1 | -1 = e.translationY < 0 ? 1 : -1;
+      const tg = targetRef.current;
+      if (!tg || tg.dir !== dir) {
+        runOnJS(beginRoll)(dir);
+        return;
+      }
+      roll.value = Math.min(1, Math.abs(e.translationY) / ROLL_DISTANCE);
+    })
+    .onEnd((e) => {
+      const tg = targetRef.current;
+      if (!tg) return;
+      const goes = roll.value > 0.35 || (tg.dir === 1 ? e.velocityY < -600 : e.velocityY > 600);
+      roll.value = withTiming(goes ? 1 : 0, { duration: goes ? 420 : 260, easing: EASE_OUT }, (done) => {
+        if (done) runOnJS(finishRoll)(goes);
+      });
+    });
 
   // --- side notes: swipe left to open, right to close -----------------------
   const notes = useSharedValue(0);
@@ -124,7 +175,7 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
     },
     [notes],
   );
-  const pan = Gesture.Pan()
+  const notesPan = Gesture.Pan()
     .activeOffsetX([-18, 18])
     .failOffsetY([-14, 14])
     .onStart(() => {
@@ -139,6 +190,29 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
       runOnJS(setNotesOpen)(open);
       if (open) runOnJS(markSeen)('notes');
     });
+  const gestures = Gesture.Race(notesPan, dayPan);
+
+  // --- deep links: realquick://snap (widgets, lock-screen control) ---------
+  const handleUrl = useCallback(
+    (url: string | null) => {
+      const intent = snapIntent(url);
+      if (!intent) return;
+      setSettingsOpen(false);
+      setPaywallOpen(false);
+      setEditOpen(false);
+      setShareOpen(false);
+      finishRoll(false);
+      setIndex(0);
+      capture.current?.autoSnap(intent.fromWidget);
+    },
+    [finishRoll],
+  );
+
+  useEffect(() => {
+    void Linking.getInitialURL().then(handleUrl);
+    const sub = Linking.addEventListener('url', (e) => handleUrl(e.url));
+    return () => sub.remove();
+  }, [handleUrl]);
 
   const tabStyle = useAnimatedStyle(() => ({
     opacity: 1 - notes.value,
@@ -150,19 +224,16 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
     opacity: 1 - notes.value,
     transform: [{ translateY: notes.value * 120 }],
   }));
-
-  const onScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const i = Math.round(e.nativeEvent.contentOffset.y / height);
-    if (i !== index) {
-      setIndex(Math.max(0, Math.min(pages.length - 1, i)));
-      haptic('light');
-      markSeen('scroll');
-    }
-  };
-
-  // What sits above today's page (and behind iOS overscroll): the day before.
-  const above = pages[index + 1] ?? addDays(viewing, -1);
-  const aboveBg = night ? NIGHT_BG : DAYS[weekdayIndex(above)].bg;
+  // The current day's content leaves as the roll progresses; the target's arrives.
+  const dirSign = target?.dir ?? 1;
+  const currentStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(roll.value, [0, 0.6], [1, 0], 'clamp'),
+    transform: [{ translateY: roll.value * -24 * dirSign }],
+  }));
+  const targetStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(roll.value, [0.4, 1], [0, 1], 'clamp'),
+    transform: [{ translateY: (1 - roll.value) * 24 * dirSign }],
+  }));
 
   const viewingEntries = useMemo(() => entriesFor(viewing, entries), [viewing, entries]);
   const barBottom = Math.max(insets.bottom, 12);
@@ -171,11 +242,9 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   const forestH = Math.round(height * 0.46);
   const stripBottom = barBottom + BAR_HEIGHT + 12;
   const bottomReserve = forestH - 24;
-  const totals = useMemo(() => dayTotals(viewingEntries), [viewingEntries]);
+  const current = dayState(viewing);
   const targets = useMemo(() => macroTargets(settings.goalKcal), [settings.goalKcal]);
-  const ratio = settings.goalKcal > 0 ? totals.kcal / settings.goalKcal : 0;
-  const growth = Math.min(1, ratio);
-  const over = Math.min(1, Math.max(0, (ratio - 1.05) / 0.5));
+  const targetDay = target ? pages[target.index] : null;
 
   // Quiet hints for the two gestures, until each has been used once.
   const hintFor = (day: string): { text: string; dir: 'up' | 'left' } | undefined => {
@@ -185,47 +254,42 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
     return undefined;
   };
 
+  const page = (day: string) => (
+    <DayPage
+      day={day}
+      label={dayLabel(day, today, yesterday)}
+      width={width}
+      height={height}
+      active={appActive && !sheetsOpen}
+      night={night}
+      entries={entriesFor(day, entries)}
+      settings={settings}
+      topInset={insets.top}
+      bottomReserve={bottomReserve}
+      hint={hintFor(day)}
+      note={day === today ? trialNote : undefined}
+    />
+  );
+
   return (
-    <View style={[styles.root, { backgroundColor: aboveBg }]}>
+    <View style={[styles.root, { backgroundColor: night ? NIGHT_BG : DAYS[weekdayIndex(viewing)].bg }]}>
       <StatusBar style="dark" />
-      <GestureDetector gesture={pan}>
+      <GestureDetector gesture={gestures}>
         <View style={StyleSheet.absoluteFill}>
-          <FlatList
-            ref={list}
-            data={pages}
-            inverted
-            pagingEnabled
-            showsVerticalScrollIndicator={false}
-            keyExtractor={(d) => d}
-            getItemLayout={(_, i) => ({
-              length: height,
-              offset: height * i,
-              index: i,
-            })}
-            initialNumToRender={2}
-            windowSize={3}
-            maxToRenderPerBatch={2}
-            onMomentumScrollEnd={onScrollEnd}
-            onScroll={onScrollEnd}
-            scrollEventThrottle={64}
-            decelerationRate="fast"
-            renderItem={({ item, index: i }) => (
-              <DayPage
-                day={item}
-                label={dayLabel(item, today, yesterday)}
-                width={width}
-                height={height}
-                active={i === index && appActive && !sheetsOpen}
-                night={night}
-                entries={entriesFor(item, entries)}
-                settings={settings}
-                topInset={insets.top}
-                bottomReserve={bottomReserve}
-                hint={hintFor(item)}
-                note={item === today ? trialNote : undefined}
-              />
-            )}
-          />
+          {targetDay ? (
+            <Animated.View style={[StyleSheet.absoluteFill, targetStyle]} pointerEvents="none">
+              {page(targetDay)}
+            </Animated.View>
+          ) : null}
+          <Animated.View style={[StyleSheet.absoluteFill, currentStyle]} pointerEvents="none">
+            {page(viewing)}
+          </Animated.View>
+
+          {/* the forest and the macro chips sit over the pages, under the notes */}
+          <Forest ref={forest} width={width} height={forestH} weekday={weekdayIndex(viewing)} growth={current.growth} over={current.over} night={night} active={appActive} roll={roll} />
+          <Animated.View style={[styles.strip, { bottom: stripBottom }, barStyle]} pointerEvents="none">
+            <MacroStrip totals={current.totals} targets={targets} night={night} />
+          </Animated.View>
 
           {/* food-list tab on the right edge: a visible door for the swipe */}
           <Animated.View style={[styles.tab, { top: height * 0.42 }, tabStyle]}>
@@ -269,11 +333,6 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
         </View>
       </GestureDetector>
 
-      <Forest width={width} height={forestH} weekday={weekdayIndex(viewing)} growth={growth} over={over} night={night} active={appActive} />
-      <Animated.View style={[styles.strip, { bottom: stripBottom }, barStyle]} pointerEvents="none">
-        <MacroStrip totals={totals} targets={targets} night={night} />
-      </Animated.View>
-
       {/* top-right: share + settings */}
       <Animated.View style={[styles.topRight, { top: insets.top + 8 }, chromeStyle]} pointerEvents={notesOpen ? 'none' : 'box-none'}>
         <Pressy style={[styles.roundBtn, SHADOW_SM]} onPress={() => setShareOpen(true)} accessibilityLabel={t('share')} testID="share-button">
@@ -294,13 +353,13 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
             toast.show(m);
             // A fresh snap always lands on today's page.
             if (index !== 0) {
-              list.current?.scrollToOffset({ offset: 0, animated: true });
+              finishRoll(false);
               setIndex(0);
             }
           }}
         />
       </Animated.View>
-      <Toast msg={toast.msg} bottom={bottomReserve + 4} />
+      <Toast msg={toast.msg} bottom={stripBottom + 62} />
 
       <EditSheet entry={editing} visible={editOpen} settings={settings} onClose={() => setEditOpen(false)} />
       <SettingsSheet
