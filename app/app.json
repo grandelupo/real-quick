@@ -1,0 +1,140 @@
+{
+  "expo": {
+    "name": "Real Quick",
+    "slug": "real-quick",
+    "scheme": "realquick",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#FFE3EA",
+    "primaryColor": "#EC5A8C",
+    "description": "Snap your food, see your calories and macros. The fastest calorie tracker.",
+    "locales": {
+      "ja": "./locales/ja.json"
+    },
+    "ios": {
+      "bundleIdentifier": "com.latovi.realquick",
+      "buildNumber": "1",
+      "supportsTablet": false,
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSCameraUsageDescription": "Real Quick uses the camera to snap your food and count its calories.",
+        "CFBundleDevelopmentRegion": "en",
+        "CFBundleLocalizations": [
+          "en",
+          "ja"
+        ],
+        "CFBundleAllowMixedLocalizations": true
+      },
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.com.latovi.realquick.shared"
+        ]
+      }
+    },
+    "android": {
+      "package": "com.latovi.realquick",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.CAMERA"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#FFD3DF",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Real Quick uses the camera to snap your food and count its calories.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/Fredoka-Medium.ttf",
+            "./assets/fonts/Fredoka-SemiBold.ttf",
+            "./assets/fonts/Fredoka-Bold.ttf",
+            "./assets/fonts/Nunito-SemiBold.ttf",
+            "./assets/fonts/Nunito-ExtraBold.ttf"
+          ]
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160,
+          "backgroundColor": "#FFE3EA"
+        }
+      ],
+      "expo-sharing",
+      "expo-localization",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "17.0"
+          },
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
+      ],
+      "@bacons/apple-targets",
+      [
+        "react-native-android-widget",
+        {
+          "fonts": [
+            "./assets/fonts/Fredoka-SemiBold.ttf",
+            "./assets/fonts/Nunito-ExtraBold.ttf"
+          ],
+          "widgets": [
+            {
+              "name": "Snap",
+              "label": "Real Quick · Snap",
+              "description": "One tap snaps your food and counts it.",
+              "minWidth": "57dp",
+              "minHeight": "57dp",
+              "targetCellWidth": 1,
+              "targetCellHeight": 1,
+              "previewImage": "./assets/widget-preview/snap.png",
+              "updatePeriodMillis": 0
+            },
+            {
+              "name": "Today",
+              "label": "Real Quick · Today",
+              "description": "Today's calories, with a snap button.",
+              "minWidth": "180dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 3,
+              "targetCellHeight": 2,
+              "previewImage": "./assets/widget-preview/today.png",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
+      ],
+      "expo-iap",
+      "./plugins/with-iphone-only"
+    ],
+    "extra": {
+      "gatewayUrl": "https://realquick.lab.karolkrakowski.pl"
+    }
+  }
+}

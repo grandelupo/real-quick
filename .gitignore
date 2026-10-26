@@ -1,1 +1,19 @@
 .env
+*.env
+!*.env.example
+.DS_Store
+node_modules/
+app/.expo/
+app/dist/
+app/web-build/
+# Continuous Native Generation: ios/ and android/ are rebuilt by `expo prebuild`
+app/ios/
+app/android/
+*.xcuserstate
+xcuserdata/
+DerivedData/
+.build/
+*.xcresult
+__pycache__/
+.aso-cache/
+marketing/appstore/raw/

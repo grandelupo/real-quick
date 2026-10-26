@@ -1,0 +1,310 @@
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { BackHandler, Image, Linking, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { isButtonCollapsed } from '../engine';
+import { t } from '../i18n';
+import { storeCapture } from '../photos';
+import { addEntry, newId, useStore } from '../store';
+import { BLUSH, FONT, INK, INK_SOFT, PAPER, SHADOW, SPRING } from '../theme';
+import { CameraIcon, CloseIcon } from '../ui/Icons';
+import { Pressy, T, haptic } from '../ui/kit';
+import { Mascot } from '../art/Mascot';
+
+// The bottom bar: a live mini camera preview next to one big button. Tap the
+// button and forget it — the photo is taken from the already-running preview
+// (no camera start-up delay), saved, and counted in the background.
+
+export const BAR_HEIGHT = 76;
+const PREVIEW = 64;
+const SIDE = 16;
+const GAP = 12;
+
+export interface CaptureHandle {
+  /** Called by deep links / widgets. Fires as soon as the camera is ready. */
+  autoSnap(fromWidget: boolean): void;
+}
+
+interface Props {
+  /** False while a sheet covers the screen — the camera sleeps. */
+  active: boolean;
+  onToast(msg: { text: string; sub?: string; action?: { label: string; run(): void } }): void;
+}
+
+export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({ active, onToast }, ref) {
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const [perm, requestPerm] = useCameraPermissions();
+  const cam = useRef<CameraView>(null);
+  const [ready, setReady] = useState(false);
+  const [big, setBig] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [flyUri, setFlyUri] = useState<string | null>(null);
+  const pendingAuto = useRef<null | { fromWidget: boolean }>(null);
+  const snaps = useStore((s) => s.totalSnaps - s.buttonResetAt);
+  const collapsed = isButtonCollapsed(snaps);
+
+  const granted = perm?.granted === true;
+
+  // --- geometry of the preview, small ↔ big -----------------------------
+  const bottom = Math.max(insets.bottom, 12);
+  const barTop = height - bottom - BAR_HEIGHT;
+  const small = { x: SIDE, y: barTop + (BAR_HEIGHT - PREVIEW) / 2, w: PREVIEW, h: PREVIEW, r: 20 };
+  const bigW = width - SIDE * 2;
+  const bigH = Math.min(bigW * (4 / 3), barTop - insets.top - 40);
+  const large = { x: SIDE, y: barTop - bigH - 16, w: bigW, h: bigH, r: 32 };
+
+  const k = useSharedValue(0); // 0 small, 1 big
+  const flash = useSharedValue(0);
+  const fly = useSharedValue(0);
+
+  useEffect(() => {
+    k.value = withSpring(big ? 1 : 0, SPRING);
+  }, [big, k]);
+
+  const previewStyle = useAnimatedStyle(() => ({
+    left: interpolate(k.value, [0, 1], [small.x, large.x]),
+    top: interpolate(k.value, [0, 1], [small.y, large.y]),
+    width: interpolate(k.value, [0, 1], [small.w, large.w]),
+    height: interpolate(k.value, [0, 1], [small.h, large.h]),
+    borderRadius: interpolate(k.value, [0, 1], [small.r, large.r]),
+  }));
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: k.value * 0.55 }));
+  const bigChrome = useAnimatedStyle(() => ({ opacity: interpolate(k.value, [0.6, 1], [0, 1], 'clamp') }));
+  const flashStyle = useAnimatedStyle(() => ({ opacity: flash.value }));
+  const flyStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(fly.value, [0, 0.15, 0.8, 1], [0, 1, 1, 0]),
+    transform: [
+      { translateX: interpolate(fly.value, [0, 1], [0, width - SIDE * 2 - PREVIEW]) },
+      { translateY: interpolate(fly.value, [0, 0.5, 1], [0, -height * 0.32, -height * 0.42]) },
+      { scale: interpolate(fly.value, [0, 0.3, 1], [1, 1.3, 0.45]) },
+      { rotate: `${interpolate(fly.value, [0, 1], [0, 14])}deg` },
+    ],
+  }));
+
+  // --- capture ------------------------------------------------------------
+  const finishWidgetFlow = useCallback(() => {
+    // Android: hand the screen back to wherever the user was. iOS does not
+    // allow apps to close themselves, so the confirmation simply stays.
+    if (Platform.OS === 'android') setTimeout(() => BackHandler.exitApp(), 1500);
+  }, []);
+
+  const snap = useCallback(
+    async (source: 'photo' | 'widget' = 'photo') => {
+      if (busy) return;
+      if (!granted) {
+        const r = await requestPerm();
+        if (!r.granted) {
+          onToast({
+            text: t('cameraDenied'),
+            action: r.canAskAgain ? undefined : { label: t('openSettings'), run: () => void Linking.openSettings() },
+          });
+          return;
+        }
+        return; // the preview mounts now; the next tap snaps
+      }
+      if (!cam.current || !ready) return;
+      setBusy(true);
+      haptic('medium');
+      flash.value = withSequence(withTiming(1, { duration: 60 }), withTiming(0, { duration: 260 }));
+      try {
+        const pic = await cam.current.takePictureAsync({ quality: 0.7, exif: false });
+        if (!pic?.uri) throw new Error('no photo');
+        setFlyUri(pic.uri);
+        fly.value = 0;
+        fly.value = withDelay(40, withTiming(1, { duration: 780 }, (done) => {
+          if (done) runOnJS(setFlyUri)(null);
+        }));
+        const id = newId();
+        const stored = await storeCapture(pic.uri, id, pic.width, pic.height);
+        addEntry({ id, source, photoUri: stored });
+        haptic('success');
+        onToast({ text: t('gotIt'), sub: t('countingNow') });
+        if (big) setBig(false);
+      } catch {
+        haptic('warning');
+        onToast({ text: t('failed') });
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy, granted, ready, requestPerm, onToast, flash, fly, big],
+  );
+
+  // Deep-link / widget auto snap: wait for the camera, then fire once.
+  useEffect(() => {
+    if (!pendingAuto.current || !ready || !active) return;
+    const { fromWidget } = pendingAuto.current;
+    pendingAuto.current = null;
+    void snap(fromWidget ? 'widget' : 'photo').then(() => {
+      if (fromWidget) finishWidgetFlow();
+    });
+  }, [ready, active, snap, finishWidgetFlow]);
+
+  useImperativeHandle(ref, () => ({
+    autoSnap(fromWidget) {
+      pendingAuto.current = { fromWidget };
+      if (!granted) void requestPerm();
+      if (ready && active) {
+        pendingAuto.current = null;
+        void snap(fromWidget ? 'widget' : 'photo').then(() => fromWidget && finishWidgetFlow());
+      }
+    },
+  }));
+
+  useEffect(() => {
+    if (!active) setBig(false);
+  }, [active]);
+
+  // --- render ---------------------------------------------------------------
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+      {/* dimmed backdrop behind the big preview */}
+      <Animated.View pointerEvents={big ? 'auto' : 'none'} style={[StyleSheet.absoluteFill, { backgroundColor: INK }, backdropStyle]}>
+        <Pressy style={StyleSheet.absoluteFill} hapticKind="none" scaleTo={1} onPress={() => setBig(false)} accessibilityLabel={t('closePreview')} />
+      </Animated.View>
+
+      {/* the bar */}
+      <Animated.View
+        layout={LinearTransition.springify().damping(18)}
+        style={[
+          styles.bar,
+          { bottom, left: SIDE + PREVIEW + GAP, right: collapsed ? undefined : SIDE },
+        ]}
+      >
+        <Pressy
+          onPress={() => void snap()}
+          hapticKind="none"
+          accessibilityLabel={t('snapA11y')}
+          testID="snap-button"
+          style={[styles.button, SHADOW, collapsed ? styles.buttonSmall : styles.buttonBig, busy && { opacity: 0.85 }]}
+        >
+          {collapsed ? (
+            <Animated.View key="icon" entering={FadeIn.duration(250)} exiting={FadeOut.duration(120)}>
+              <CameraIcon size={34} color={INK} stroke={2.3} />
+            </Animated.View>
+          ) : (
+            <Animated.View key="label" entering={FadeIn.duration(250)} exiting={FadeOut.duration(120)} style={styles.labelWrap}>
+              <T v="button" style={styles.label}>
+                {t('ctaPrefix')}{' '}
+              </T>
+              <View style={styles.inlineIcon}>
+                <CameraIcon size={22} color={INK} stroke={2.4} />
+              </View>
+              <T v="button" style={styles.label}>
+                {' '}{t('ctaSuffix')}
+              </T>
+            </Animated.View>
+          )}
+        </Pressy>
+      </Animated.View>
+
+      {/* the one camera: small next to the button, or big when tapped */}
+      <Animated.View style={[styles.preview, SHADOW, previewStyle]}>
+        {granted ? (
+          <CameraView
+            ref={cam}
+            style={StyleSheet.absoluteFill}
+            facing="back"
+            active={active}
+            animateShutter={false}
+            onCameraReady={() => setReady(true)}
+            onMountError={() => setReady(false)}
+          />
+        ) : (
+          <View style={[StyleSheet.absoluteFill, styles.noCam]}>
+            <Mascot size={44} pose="sleep" />
+          </View>
+        )}
+        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: '#FFFFFF' }, flashStyle]} />
+        {!big && (
+          <Pressy
+            style={StyleSheet.absoluteFill}
+            hapticKind="light"
+            scaleTo={0.97}
+            accessibilityLabel={granted ? t('previewA11y') : t('allowCamera')}
+            onPress={() => (granted ? setBig(true) : void requestPerm())}
+          />
+        )}
+        {big && (
+          <Animated.View style={[StyleSheet.absoluteFill, bigChrome]} pointerEvents="box-none">
+            <Pressy style={styles.close} onPress={() => setBig(false)} accessibilityLabel={t('closePreview')}>
+              <CloseIcon size={22} color={INK} />
+            </Pressy>
+            <Pressy style={styles.shutter} onPress={() => void snap()} hapticKind="none" accessibilityLabel={t('snapA11y')}>
+              <View style={styles.shutterInner} />
+            </Pressy>
+          </Animated.View>
+        )}
+      </Animated.View>
+
+      {/* the snapped photo flies off toward the food list */}
+      {flyUri && (
+        <Animated.View pointerEvents="none" style={[styles.fly, { left: small.x, top: small.y }, flyStyle]}>
+          <Image source={{ uri: flyUri }} style={styles.flyImg} />
+        </Animated.View>
+      )}
+    </View>
+  );
+});
+
+const styles = StyleSheet.create({
+  bar: { position: 'absolute', height: BAR_HEIGHT, justifyContent: 'center' },
+  button: {
+    height: BAR_HEIGHT - 8,
+    borderRadius: 26,
+    backgroundColor: PAPER,
+    borderWidth: 2.5,
+    borderColor: INK,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonBig: { paddingHorizontal: 14 },
+  buttonSmall: { width: BAR_HEIGHT - 8, borderRadius: 34, backgroundColor: BLUSH },
+  labelWrap: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' },
+  label: { fontFamily: FONT.display, fontSize: 17, lineHeight: 22, textAlign: 'center' },
+  inlineIcon: { marginTop: -2 },
+  preview: { position: 'absolute', overflow: 'hidden', backgroundColor: '#2B2350', borderWidth: 2.5, borderColor: INK },
+  noCam: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFE3EA' },
+  close: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: PAPER,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shutter: {
+    position: 'absolute',
+    bottom: 22,
+    alignSelf: 'center',
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shutterInner: { width: 62, height: 62, borderRadius: 31, backgroundColor: BLUSH, borderWidth: 2.5, borderColor: INK },
+  fly: { position: 'absolute', width: PREVIEW, height: PREVIEW, borderRadius: 16, overflow: 'hidden', borderWidth: 3, borderColor: '#FFFFFF' },
+  flyImg: { width: '100%', height: '100%' },
+});
+
+export const CAPTURE_LAYOUT = { BAR_HEIGHT, PREVIEW, SIDE, GAP, INK_SOFT };
