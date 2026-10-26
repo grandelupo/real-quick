@@ -61,6 +61,14 @@ cached tarball: `tar -xzf ~/Library/Caches/ReactNative/hermes-ios-*-release.tar.
 deleting `ios/Pods/hermes-engine`). Xcode's run-script phases find `node`
 through `ios/.xcode.env.local` (`export NODE_BINARY=/usr/local/bin/node`).
 
+Shipping a new build: bump `expo.ios.buildNumber` in `app.json` **and** the
+`CFBundleVersion` Expo wrote into `ios/RealQuick/Info.plist` and the widget's
+Info.plist (prebuild rewrites them; between prebuilds use PlistBuddy) — passing
+`CURRENT_PROJECT_VERSION` to xcodebuild alone is not enough, App Store Connect
+checks the plist. Then archive + `-exportArchive` with
+`ios/build/ship/export.plist`, wait for the build to be VALID, and
+`asc.py version attach-build com.latovi.realquick --build N`.
+
 Simulators: use the single existing iOS simulator ("Upbell Capture"); never
 create simulators or Android emulators (see app-builder/CLAUDE.md). Android is
 verified on a real device or via EAS.
