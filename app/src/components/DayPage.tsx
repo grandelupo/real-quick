@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, { Easing, FadeIn, useAnimatedProps, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, FadeOut, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
+import { ChevronIcon } from '../ui/Icons';
 import Svg, { Circle } from 'react-native-svg';
 import { DayArt } from '../art/DayArt';
 import { dayTotals, macroTargets, toUnit, weekdayIndex, type Entry, type Settings } from '../engine';
 import { n, t } from '../i18n';
-import { DAYS, FONT, INK_FAINT, INK_SOFT, MACRO, SHADOW } from '../theme';
+import { DAYS, INK_FAINT, INK_SOFT, MACRO, SHADOW } from '../theme';
 import { T } from '../ui/kit';
 
 const ACircle = Animated.createAnimatedComponent(Circle);
@@ -60,6 +61,20 @@ function Ring({ size, progress, color, track }: { size: number; progress: number
   );
 }
 
+/** A chevron that keeps nodding in the direction of the gesture. */
+function Nudge({ dir }: { dir: 'up' | 'left' }) {
+  const v = useSharedValue(0);
+  useEffect(() => {
+    v.value = withRepeat(withSequence(withTiming(-5, { duration: 500, easing: Easing.inOut(Easing.sin) }), withTiming(0, { duration: 500, easing: Easing.inOut(Easing.sin) })), -1);
+  }, [v]);
+  const style = useAnimatedStyle(() => ({ transform: dir === 'up' ? [{ translateY: v.value }] : [{ translateX: v.value }] }));
+  return (
+    <Animated.View style={style}>
+      <ChevronIcon size={18} dir={dir} />
+    </Animated.View>
+  );
+}
+
 function MacroBar({ label, value, target, color }: { label: string; value: number; target: number; color: string }) {
   const w = useSharedValue(0);
   const k = target > 0 ? Math.min(1, value / target) : 0;
@@ -100,7 +115,7 @@ export interface DayPageProps {
   settings: Settings;
   topInset: number;
   bottomReserve: number;
-  hint?: string;
+  hint?: { text: string; dir: 'up' | 'left' };
 }
 
 export const DayPage = React.memo(function DayPage(p: DayPageProps) {
@@ -151,9 +166,12 @@ export const DayPage = React.memo(function DayPage(p: DayPageProps) {
           <MacroBar label={t('fat')} value={totals.fat} target={targets.fat} color={MACRO.fat} />
         </View>
         {p.hint ? (
-          <T v="small" color={INK_SOFT} style={styles.hint}>
-            {p.hint}
-          </T>
+          <Animated.View key={p.hint.dir} entering={FadeIn.duration(300)} exiting={FadeOut.duration(200)} style={styles.hint}>
+            <Nudge dir={p.hint.dir} />
+            <T v="small" color={INK_SOFT}>
+              {p.hint.text}
+            </T>
+          </Animated.View>
         ) : null}
       </View>
     </View>
@@ -174,6 +192,6 @@ const styles = StyleSheet.create({
   dot: { width: 9, height: 9, borderRadius: 5 },
   track: { height: 7, borderRadius: 4, backgroundColor: INK_FAINT, marginTop: 8, overflow: 'hidden' },
   fill: { height: 7, borderRadius: 4 },
-  hint: { textAlign: 'center', marginBottom: 8, fontFamily: FONT.body, alignSelf: 'center', backgroundColor: 'rgba(255,255,255,0.7)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 999, overflow: 'hidden' },
+  hint: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8, alignSelf: 'center', backgroundColor: 'rgba(255,255,255,0.75)', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999, overflow: 'hidden' },
 });
 

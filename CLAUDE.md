@@ -44,6 +44,7 @@ npm test                 # engine + i18n (Jest)
 npm run typecheck
 npx expo-doctor
 npx expo start --web     # quickest visual check (mock products, no camera in headless)
+                         # with CI=1 the server does NOT watch files — restart it after edits
 npx expo prebuild --clean && npx expo run:ios   # dev build on the "Upbell Capture" simulator
 cd ../server && python3 -m unittest test_gateway -v
 PROVIDER=fake PORT=8787 STATE_FILE=/tmp/rq.json python3 gateway.py   # local gateway, no key

@@ -15,6 +15,8 @@ export interface State {
   totalSnaps: number;
   /** Set when the user asks for the big button back. */
   buttonResetAt: number;
+  /** Gestures the user has performed at least once; the hints stop afterwards. */
+  seen: { scroll: boolean; notes: boolean };
   isPro: boolean;
   /** Store receipt the gateway verifies (iOS JWS / Play purchase token). */
   proToken?: string;
@@ -32,6 +34,7 @@ let state: State = {
   entries: [],
   totalSnaps: 0,
   buttonResetAt: 0,
+  seen: { scroll: false, notes: false },
   isPro: false,
   installId: '',
 };
@@ -97,6 +100,7 @@ export async function load() {
     ...state,
     ...saved,
     settings: { ...DEFAULT_SETTINGS, ...(saved.settings ?? {}) },
+    seen: { scroll: false, notes: false, ...(saved.seen ?? {}) },
     entries,
     installId,
     firstDay: saved.firstDay ?? dayKey(new Date()),
@@ -142,6 +146,11 @@ export function removeEntry(id: string): Entry | undefined {
   return gone;
 }
 
+export function markSeen(what: keyof State['seen']) {
+  if (state.seen[what]) return;
+  setState((s) => ({ seen: { ...s.seen, [what]: true } }));
+}
+
 export function setSettings(patch: Partial<Settings>) {
   setState((s) => ({ settings: { ...s.settings, ...patch } }));
 }
@@ -155,6 +164,7 @@ export async function eraseAll() {
     entries: [],
     totalSnaps: 0,
     buttonResetAt: 0,
+    seen: { scroll: false, notes: false },
     isPro: state.isPro, // a subscription belongs to the Apple/Google account, not this data
     installId,
     firstDay: dayKey(new Date()),

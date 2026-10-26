@@ -2,7 +2,7 @@ import { AppState } from 'react-native';
 import { ApiError, analyzePhoto, analyzeText } from './api';
 import { readBase64, shrinkToThumb } from './photos';
 import { getState, onChange, updateEntry } from './store';
-import type { Entry } from './engine';
+import { dayKey, type Entry } from './engine';
 
 // Background counter: walks pending entries one by one. A snap taken on the
 // underground is not lost — it waits, and is counted when the phone is back
@@ -53,9 +53,18 @@ async function processOne(e: Entry) {
   }
 }
 
+/** Entries that hit the free limit on an earlier day get a fresh quota today. */
+function releaseStaleLimits() {
+  const today = dayKey(new Date());
+  for (const e of getState().entries) {
+    if (e.status === 'limit' && (e.dayKey < today || getState().isPro)) updateEntry(e.id, { status: 'pending', attempts: 0 });
+  }
+}
+
 export async function pump() {
   if (running) return;
   running = true;
+  releaseStaleLimits();
   try {
     // Skip entries that are waiting for a retry slot by processing in order;
     // a network failure stops the loop so we don't hammer a dead connection.
@@ -85,10 +94,14 @@ export function startAnalyzer() {
   if (started) return;
   started = true;
   let lastPending = 0;
+  let lastPro = getState().isPro;
   onChange((s) => {
     const pending = s.entries.filter((e) => e.status === 'pending').length;
     if (pending > lastPending) void pump();
     lastPending = pending;
+    // Buying Pro unblocks today's limit-blocked snaps straight away.
+    if (s.isPro && !lastPro) void pump();
+    lastPro = s.isPro;
   });
   AppState.addEventListener('change', (st) => {
     if (st === 'active') void pump();

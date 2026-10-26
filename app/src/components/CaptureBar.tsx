@@ -114,7 +114,9 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
           });
           return;
         }
-        return; // the preview mounts now; the next tap snaps
+        // The preview mounts now; snap as soon as it reports ready.
+        pendingAuto.current = { fromWidget: source === 'widget' };
+        return;
       }
       if (!cam.current || !ready) return;
       setBusy(true);
