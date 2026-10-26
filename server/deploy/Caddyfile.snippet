@@ -1,0 +1,20 @@
+# Appended to /etc/caddy/Caddyfile by deploy.sh (append, never rewrite).
+realquick.lab.karolkrakowski.pl {
+	encode gzip
+	request_body {
+		max_size 5MB
+	}
+	log {
+		output file /var/log/caddy/realquick.log
+	}
+	handle /v1/* {
+		reverse_proxy 127.0.0.1:8096
+	}
+	handle /healthz {
+		reverse_proxy 127.0.0.1:8096
+	}
+	handle {
+		root * /srv/sites/realquick
+		file_server
+	}
+}

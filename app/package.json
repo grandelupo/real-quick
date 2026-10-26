@@ -1,5 +1,5 @@
 {
-  "name": "rq",
+  "name": "real-quick",
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
@@ -8,7 +8,6 @@
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~57.0.31",
     "expo-application": "~57.0.3",
-    "expo-blur": "~57.0.3",
     "expo-build-properties": "~57.0.22",
     "expo-camera": "~57.0.6",
     "expo-constants": "~57.0.22",
@@ -38,9 +37,9 @@
     "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
-    "@types/jest": "^30.0.0",
+    "@types/jest": "29.5.14",
     "@types/react": "~19.2.2",
-    "jest": "^30.5.2",
+    "jest": "~29.7.0",
     "ts-jest": "^29.4.15",
     "typescript": "~6.0.3"
   },
@@ -48,7 +47,10 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "test": "jest",
+    "typecheck": "tsc --noEmit",
+    "native": "expo prebuild --clean"
   },
   "private": true
 }

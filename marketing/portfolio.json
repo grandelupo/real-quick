@@ -1,0 +1,37 @@
+{
+  "slug": "real-quick",
+  "display_order": 1,
+  "icon_class": "fa-solid fa-pizza-slice",
+  "tools": [
+    "Expo",
+    "React Native",
+    "TypeScript",
+    "Python",
+    "Claude",
+    "WidgetKit"
+  ],
+  "thumbnail": "marketing/site/icon.png",
+  "images": [
+    "marketing/appstore/out/en-US/01.png",
+    "marketing/appstore/out/en-US/02.png",
+    "marketing/appstore/out/en-US/04.png"
+  ],
+  "link_url": "https://realquick.lab.karolkrakowski.pl",
+  "translations": {
+    "en": {
+      "title": "Real Quick – The Fastest Calorie Tracker",
+      "description": "A calorie tracker reduced to one button: snap your plate and an AI vision model counts calories and macros while you eat. Pastel worlds for every weekday, a night landscape after 8 pm, Lock Screen snapping on iPhone and a one-tap home-screen widget on Android. Built with Expo for iOS and Android, with a small Python gateway in front of Claude.",
+      "link_text": "See the app"
+    },
+    "pl": {
+      "title": "Real Quick – najszybszy licznik kalorii",
+      "description": "Licznik kalorii sprowadzony do jednego przycisku: robisz zdjęcie talerza, a model AI liczy kalorie i makroskładniki, zanim skończysz jeść. Pastelowy świat na każdy dzień tygodnia, nocny krajobraz po 20:00, robienie zdjęć z ekranu blokady na iPhonie i widżet jednym dotknięciem na Androidzie. Expo na iOS i Androida oraz mała bramka w Pythonie przed modelem Claude.",
+      "link_text": "Zobacz aplikację"
+    },
+    "ch": {
+      "title": "Real Quick – 最快的卡路里记录",
+      "description": "把卡路里记录简化成一个按钮：拍下餐盘，AI 视觉模型在你吃饭时算出卡路里和三大营养素。每个工作日都有不同的粉彩配色，晚上 8 点后变成夜景；iPhone 可在锁屏上一键拍照，Android 有一键桌面小组件。使用 Expo 构建 iOS 和 Android，并通过小型 Python 网关调用 Claude。",
+      "link_text": "查看应用"
+    }
+  }
+}

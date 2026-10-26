@@ -1,0 +1,19 @@
+[Unit]
+Description=Real Quick model gateway
+After=network-online.target
+
+[Service]
+User=realquick
+Group=realquick
+EnvironmentFile=/etc/realquick/gateway.env
+WorkingDirectory=/opt/realquick
+ExecStart=/opt/realquick/venv/bin/python /opt/realquick/gateway.py
+Restart=always
+RestartSec=2
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/realquick
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

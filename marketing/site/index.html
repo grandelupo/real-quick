@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Real Quick – The Fastest Calorie Tracker</title>
+<meta name="description" content="Snap your food. That's it. Real Quick counts calories and macros from one photo.">
+<link rel="icon" href="icon.png">
+<style>
+  :root { --ink:#2B2350; --soft:rgba(43,35,80,.65); --blush:#FF9EB5; --paper:#FFFDF7; }
+  * { box-sizing: border-box; }
+  body { margin:0; color:var(--ink); background: radial-gradient(1200px 600px at 30% -10%, #FFE9EF, transparent 60%), linear-gradient(180deg,#FFD3DF,#FFF6F8 55%,#CFF2E2);
+         font: 18px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Noto Sans JP", sans-serif; min-height:100vh; }
+  main { max-width: 980px; margin: 0 auto; padding: 48px 20px 64px; }
+  .hero { text-align:center; }
+  .hero img.icon { width:132px; height:132px; border-radius:30px; border:3px solid var(--ink); box-shadow:0 18px 40px rgba(43,35,80,.18); }
+  h1 { font-size: clamp(36px, 7vw, 64px); line-height:1.05; margin: 22px 0 8px; letter-spacing:-.02em; }
+  .sub { font-size: 21px; color: var(--soft); margin: 0 auto 26px; max-width: 560px; }
+  .cta { display:flex; justify-content:center; gap:12px; flex-wrap:wrap; }
+  .badge img { height:52px; }
+  form { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+  input[type=email] { font:inherit; padding:14px 18px; border-radius:18px; border:3px solid var(--ink); min-width:260px; background:#fff; color:var(--ink); }
+  button { font:inherit; font-weight:700; padding:14px 24px; border-radius:18px; border:3px solid var(--ink); background:var(--blush); color:var(--ink); cursor:pointer; }
+  .ok { display:none; font-weight:700; }
+  .shots { display:flex; gap:20px; overflow-x:auto; padding:34px 6px 10px; scroll-snap-type:x mandatory; justify-content:safe center; }
+  .shots img { width:250px; flex:none; border-radius:34px; border:10px solid #0B0B0C; box-shadow:0 24px 50px rgba(43,35,80,.25); scroll-snap-align:center; background:#fff; }
+  .points { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-top:34px; }
+  .point { background:var(--paper); border:2.5px solid var(--ink); border-radius:24px; padding:18px 20px; }
+  .point b { display:block; font-size:19px; margin-bottom:4px; }
+  footer { text-align:center; color:var(--soft); font-size:15px; margin-top:44px; }
+  footer a { color:var(--ink); }
+  .lang { position:absolute; top:16px; right:18px; font-size:15px; }
+  .lang a { color:var(--ink); margin-left:10px; }
+</style>
+</head>
+<body>
+<div class="lang"><a href="?lang=en">EN</a><a href="?lang=ja">日本語</a></div>
+<main>
+  <section class="hero">
+    <img class="icon" src="icon.png" alt="Real Quick icon — a pizza that is also a pie chart">
+    <h1 data-i18n="h1">Snap your food.<br>That’s it.</h1>
+    <p class="sub" data-i18n="sub">Real Quick – the fastest calorie tracker. One tap takes the photo; calories and macros appear while you eat.</p>
+    <div id="live" class="cta" hidden>
+      <a class="badge" id="appstore" href="#"><img alt="Download on the App Store" src="https://tools.applemarketingtools.com/api/badges/download-on-the-app-store/black/en-us"></a>
+      <a class="badge" id="playstore" href="#" hidden><img alt="Get it on Google Play" src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" style="height:76px;margin-top:-12px"></a>
+    </div>
+    <div id="waitlist">
+      <form id="wl">
+        <input type="email" name="email" required placeholder="you@example.com" data-i18n-placeholder="email" aria-label="Email">
+        <button type="submit" data-i18n="join">Tell me at launch</button>
+      </form>
+      <p class="ok" id="ok" data-i18n="ok">🍕 You’re on the list — we’ll email you once.</p>
+    </div>
+  </section>
+
+  <div class="shots">
+    <img src="shot1.jpg" alt="Today's calories and macros on a mint Monday">
+    <img src="shot2.jpg" alt="The food list, swiped in from the right">
+    <img src="shot4.jpg" alt="The calm white night look">
+  </div>
+
+  <section class="points">
+    <div class="point"><b data-i18n="p1t">One button</b><span data-i18n="p1">Tap it and forget it. A live mini camera sits next to it, so the photo is instant.</span></div>
+    <div class="point"><b data-i18n="p2t">Lock Screen snaps</b><span data-i18n="p2">Add the Snap widget or the iOS 18 control and track without even opening the app.</span></div>
+    <div class="point"><b data-i18n="p3t">A colour for every day</b><span data-i18n="p3">Pastel food doodles by day, a soft landscape by night. Swipe up and down through your week.</span></div>
+    <div class="point"><b data-i18n="p4t">No account</b><span data-i18n="p4">Your diary stays on your phone. Photos are only used to count your food.</span></div>
+  </section>
+
+  <footer>
+    <a href="https://karolkrakowski.pl/apps/real-quick/privacy.htm" data-i18n="privacy">Privacy</a> ·
+    <a href="https://karolkrakowski.pl/apps/real-quick/support.htm" data-i18n="support">Support</a> ·
+    <a href="mailto:karol@karolkrakowski.pl">karol@karolkrakowski.pl</a>
+  </footer>
+</main>
+<script>
+(function () {
+  var SLUG = 'realquick';
+  var PB = 'https://waitlist.lab.karolkrakowski.pl';
+  var T = {
+    ja: {
+      h1: '撮るだけ。<br>それだけ。',
+      sub: 'Real Quick — いちばん速いカロリー計算。ワンタップで撮影、食べている間にカロリーとPFCが表示されます。',
+      email: 'メールアドレス', join: 'リリース時に知らせて', ok: '🍕 登録しました。リリース時に一度だけメールします。',
+      p1t: 'ボタンひとつ', p1: 'タップしたら忘れてOK。横の小さなカメラで、すぐに撮影できます。',
+      p2t: 'ロック画面から撮影', p2: '「撮影」ウィジェットやiOS 18のコントロールで、アプリを開かずに記録。',
+      p3t: '毎日ちがう色', p3: '昼はパステルの食べものイラスト、夜はやさしい景色。上下スワイプで1週間をめぐれます。',
+      p4t: 'アカウント不要', p4: '記録は端末の中だけ。写真は計算のためだけに使われます。',
+      privacy: 'プライバシー', support: 'サポート'
+    }
+  };
+  var q = new URLSearchParams(location.search);
+  var lang = q.get('lang') || ((navigator.languages || [navigator.language]).map(function (l) { return (l || '').slice(0, 2); }).find(function (l) { return T[l]; })) || 'en';
+  if (T[lang]) {
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-i18n]').forEach(function (el) { var v = T[lang][el.dataset.i18n]; if (v) el.innerHTML = v; });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(function (el) { var v = T[lang][el.dataset.i18nPlaceholder]; if (v) el.placeholder = v; });
+  }
+  function show(rec) {
+    var live = rec && rec.appstore_url;
+    document.getElementById('live').hidden = !live;
+    document.getElementById('waitlist').hidden = !!live;
+    if (live) {
+      document.getElementById('appstore').href = rec.appstore_url;
+      if (rec.playstore_url) { var p = document.getElementById('playstore'); p.hidden = false; p.href = rec.playstore_url; }
+    }
+  }
+  var force = q.get('force');
+  if (force === 'live') show({ appstore_url: 'https://apps.apple.com/', playstore_url: 'https://play.google.com/' });
+  else if (force !== 'waitlist') {
+    fetch(PB + "/api/collections/apps/records?filter=(slug='" + SLUG + "')")
+      .then(function (r) { return r.json(); })
+      .then(function (d) { show(d.items && d.items[0]); })
+      .catch(function () { /* keep the baked-in waitlist state */ });
+  }
+  document.getElementById('wl').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var email = e.target.email.value;
+    fetch(PB + '/api/collections/waitlist/records', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email, app: SLUG }) })
+      .finally(function () { e.target.style.display = 'none'; document.getElementById('ok').style.display = 'block'; });
+  });
+})();
+</script>
+</body>
+</html>
