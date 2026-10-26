@@ -41,8 +41,8 @@ export interface Entry {
   /** Short label the AI gave the whole plate ("Chicken salad"). */
   title?: string;
   attempts: number;
-  /** Why a failed entry failed — picks the message in the food list. */
-  problem?: 'noFood' | 'network' | 'server';
+  /** Why a failed or blocked entry stopped — picks the message in the food list. */
+  problem?: 'noFood' | 'network' | 'server' | 'trial';
 }
 
 export interface Macros {
@@ -70,6 +70,8 @@ export interface Settings {
   bias: Bias;
   unit: EnergyUnit;
   partnerName: string;
+  /** How the owner is named on their live share page. */
+  shareName: string;
   nightLook: boolean;
   haptics: boolean;
   profile?: Profile;
@@ -81,6 +83,7 @@ export const DEFAULT_SETTINGS: Settings = {
   bias: 'honest',
   unit: 'kcal',
   partnerName: '',
+  shareName: '',
   nightLook: true,
   haptics: true,
   imperial: false,

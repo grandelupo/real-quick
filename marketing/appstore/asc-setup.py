@@ -9,7 +9,7 @@ read from listing.md so the listing stays the one source:
 Steps: app (price free, availability, content rights, category), meta (name,
 subtitle, keywords, promo, description, URLs, copyright for en-US + ja),
 shots (out/en-US, out/ja), review (contact + notes), subs (group, both
-products, localizations, prices in every territory, 1-week free trial,
+products, localizations, prices in every territory, no intro offer,
 review screenshot), age (age-rating declaration). Safe to re-run: each step
 looks before it creates.
 
@@ -232,14 +232,12 @@ def step_subs(c, app, version) -> None:
             print(f"  prices: {len(points)} territories, US ${spec['usd']}" + (f", Japan ¥{jpy['attributes']['customerPrice']}" if jpy else ""))
 
 
-        if c.get(f"/subscriptions/{sid}/introductoryOffers", limit=1).get("data"):
-            print("  free trial already set")
-        else:
-            for t in terrs:
-                c.post("/subscriptionIntroductoryOffers", {"type": "subscriptionIntroductoryOffers", "attributes": {
-                    "duration": "ONE_WEEK", "offerMode": "FREE_TRIAL", "numberOfPeriods": 1},
-                    "relationships": {"subscription": rel("subscriptions", sid), "territory": rel("territories", t)}})
-            print(f"  1-week free trial in {len(terrs)} territories")
+        # No introductory offer: the app itself is free for its first 3 days
+        # (every count costs model time), so a store trial on top would undo that.
+        offers = c.get_all(f"/subscriptions/{sid}/introductoryOffers", limit=200)
+        for o in offers:
+            c.delete(f"/subscriptionIntroductoryOffers/{o['id']}")
+        print(f"  intro offers: {'removed ' + str(len(offers)) if offers else 'none'}")
 
         shot = maybe(c, f"/subscriptions/{sid}/appStoreReviewScreenshot")
         if shot and (shot["attributes"].get("assetDeliveryState") or {}).get("state") == "FAILED":

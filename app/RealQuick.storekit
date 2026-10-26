@@ -1,74 +1,91 @@
 {
-  "identifier" : "4F7A1C2E",
-  "nonRenewingSubscriptions" : [],
-  "products" : [],
-  "settings" : {
-    "_applicationInternalID" : "",
-    "_developerTeamID" : "",
-    "_failTransactionsEnabled" : false,
-    "_locale" : "en_US",
-    "_storefront" : "USA",
-    "_storeKitErrors" : []
+  "identifier": "4F7A1C2E",
+  "nonRenewingSubscriptions": [],
+  "products": [],
+  "settings": {
+    "_applicationInternalID": "",
+    "_developerTeamID": "",
+    "_failTransactionsEnabled": false,
+    "_locale": "en_US",
+    "_storefront": "USA",
+    "_storeKitErrors": []
   },
-  "subscriptionGroups" : [
+  "subscriptionGroups": [
     {
-      "id" : "21581001",
-      "localizations" : [
-        { "description" : "", "displayName" : "Real Quick Pro", "locale" : "en_US" },
-        { "description" : "", "displayName" : "Real Quick Pro", "locale" : "ja" }
-      ],
-      "name" : "Real Quick Pro",
-      "subscriptions" : [
+      "id": "21581001",
+      "localizations": [
         {
-          "adHocOffers" : [],
-          "codeOffers" : [],
-          "displayPrice" : "29.99",
-          "familyShareable" : false,
-          "groupNumber" : 1,
-          "internalID" : "6741000001",
-          "introductoryOffer" : {
-            "internalID" : "6741000011",
-            "numberOfPeriods" : 1,
-            "paymentMode" : "free",
-            "subscriptionPeriod" : "P1W"
-          },
-          "localizations" : [
-            { "description" : "Unlimited AI food counts, billed yearly", "displayName" : "Real Quick Pro Yearly", "locale" : "en_US" },
-            { "description" : "AIの食事計算が無制限（毎年請求）", "displayName" : "Real Quick Pro 年額", "locale" : "ja" }
-          ],
-          "productID" : "com.latovi.realquick.pro.yearly",
-          "recurringSubscriptionPeriod" : "P1Y",
-          "referenceName" : "Pro Yearly",
-          "subscriptionGroupID" : "21581001",
-          "type" : "RecurringSubscription",
-          "winbackOffers" : []
+          "description": "",
+          "displayName": "Real Quick Pro",
+          "locale": "en_US"
         },
         {
-          "adHocOffers" : [],
-          "codeOffers" : [],
-          "displayPrice" : "4.99",
-          "familyShareable" : false,
-          "groupNumber" : 2,
-          "internalID" : "6741000002",
-          "introductoryOffer" : {
-            "internalID" : "6741000012",
-            "numberOfPeriods" : 1,
-            "paymentMode" : "free",
-            "subscriptionPeriod" : "P1W"
-          },
-          "localizations" : [
-            { "description" : "Unlimited AI food counts, billed monthly", "displayName" : "Real Quick Pro Monthly", "locale" : "en_US" },
-            { "description" : "AIの食事計算が無制限（毎月請求）", "displayName" : "Real Quick Pro 月額", "locale" : "ja" }
+          "description": "",
+          "displayName": "Real Quick Pro",
+          "locale": "ja"
+        }
+      ],
+      "name": "Real Quick Pro",
+      "subscriptions": [
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "29.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "6741000001",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "Unlimited AI food counts, billed yearly",
+              "displayName": "Real Quick Pro Yearly",
+              "locale": "en_US"
+            },
+            {
+              "description": "AIの食事計算が無制限（毎年請求）",
+              "displayName": "Real Quick Pro 年額",
+              "locale": "ja"
+            }
           ],
-          "productID" : "com.latovi.realquick.pro.monthly",
-          "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "Pro Monthly",
-          "subscriptionGroupID" : "21581001",
-          "type" : "RecurringSubscription",
-          "winbackOffers" : []
+          "productID": "com.latovi.realquick.pro.yearly",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "Pro Yearly",
+          "subscriptionGroupID": "21581001",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "4.99",
+          "familyShareable": false,
+          "groupNumber": 2,
+          "internalID": "6741000002",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "Unlimited AI food counts, billed monthly",
+              "displayName": "Real Quick Pro Monthly",
+              "locale": "en_US"
+            },
+            {
+              "description": "AIの食事計算が無制限（毎月請求）",
+              "displayName": "Real Quick Pro 月額",
+              "locale": "ja"
+            }
+          ],
+          "productID": "com.latovi.realquick.pro.monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "Pro Monthly",
+          "subscriptionGroupID": "21581001",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
         }
       ]
     }
   ],
-  "version" : { "major" : 4, "minor" : 0 }
+  "version": {
+    "major": 4,
+    "minor": 0
+  }
 }

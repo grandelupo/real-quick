@@ -1,15 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, FadeOut, useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, useAnimatedProps, useSharedValue, withTiming } from 'react-native-reanimated';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { DayArt } from '../art/DayArt';
 import { Hero } from '../art/Hero';
-import { dayTotals, macroTargets, toUnit, weekdayIndex, type Entry, type Settings } from '../engine';
+import { dayTotals, toUnit, weekdayIndex, type Entry, type Settings } from '../engine';
 import { n, t } from '../i18n';
-import { DAYS, INK_FAINT, INK_HAIR, INK_SOFT, MACRO, SHADOW, SHADOW_SM, SURFACE } from '../theme';
+import { DAYS, INK_HAIR, INK_SOFT, MACRO, SHADOW, SHADOW_SM, SURFACE } from '../theme';
 import { ChevronIcon } from '../ui/Icons';
-import { Card } from '../ui/surface';
-import { EASE_OUT, TIMING_SLOW } from '../ui/motion';
+import { EASE_OUT } from '../ui/motion';
 import { T } from '../ui/kit';
 
 const ACircle = Animated.createAnimatedComponent(Circle);
@@ -68,35 +67,6 @@ function Ring({ size, progress, color, colorSoft, track, id }: { size: number; p
   );
 }
 
-function MacroBar({ label, value, target, color }: { label: string; value: number; target: number; color: string }) {
-  const w = useSharedValue(0);
-  const k = target > 0 ? Math.min(1, value / target) : 0;
-  useEffect(() => {
-    w.value = withTiming(k, { duration: 700, easing: EASE_OUT });
-  }, [k, w]);
-  const shown = useCountUp(value);
-  const fillStyle = useAnimatedStyle(() => ({ width: `${w.value * 100}%` }));
-  return (
-    <View style={styles.macro}>
-      <View style={styles.macroTop}>
-        <View style={[styles.dot, { backgroundColor: color }]} />
-        <T v="small" color={INK_SOFT} style={{ flex: 1 }} numberOfLines={1}>
-          {label}
-        </T>
-      </View>
-      <T v="h2" style={{ marginTop: 3 }}>
-        {n(shown)}
-        <T v="small" color={INK_SOFT}>
-          {' '}/ {n(target)}g
-        </T>
-      </T>
-      <View style={styles.track}>
-        <Animated.View style={[styles.fill, { backgroundColor: color }, fillStyle]} />
-      </View>
-    </View>
-  );
-}
-
 export interface DayPageProps {
   day: string;
   label: string;
@@ -109,19 +79,20 @@ export interface DayPageProps {
   topInset: number;
   bottomReserve: number;
   hint?: { text: string; dir: 'up' | 'left' };
+  /** A quiet line under the ring, e.g. how many free days are left. */
+  note?: string;
 }
 
 export const DayPage = React.memo(function DayPage(p: DayPageProps) {
   const wd = weekdayIndex(p.day);
   const pal = DAYS[wd];
   const totals = dayTotals(p.entries);
-  const targets = macroTargets(p.settings.goalKcal);
   const pending = p.entries.filter((e) => e.status === 'pending').length;
   const kcal = toUnit(totals.kcal, p.settings.unit);
   const goal = toUnit(p.settings.goalKcal, p.settings.unit);
   const shown = useCountUp(kcal);
   const diff = goal - kcal;
-  const ringSize = Math.min(p.width * 0.64, (p.height - p.topInset - p.bottomReserve) * 0.4, 272);
+  const ringSize = Math.min(p.width * 0.6, (p.height - p.topInset - p.bottomReserve) * 0.5, 256);
   const heroSize = Math.min(p.width * 0.34, 140);
   const over = kcal > goal * 1.05;
 
@@ -158,14 +129,12 @@ export const DayPage = React.memo(function DayPage(p: DayPageProps) {
               </T>
             </Animated.View>
           )}
+          {p.note ? (
+            <T v="small" color={INK_SOFT} style={styles.pending}>
+              {p.note}
+            </T>
+          ) : null}
         </View>
-        <Card style={styles.card} tint={p.night ? SURFACE : 'rgba(255,255,255,0.94)'}>
-          <MacroBar label={t('protein')} value={totals.protein} target={targets.protein} color={MACRO.protein} />
-          <View style={styles.divider} />
-          <MacroBar label={t('carbs')} value={totals.carbs} target={targets.carbs} color={MACRO.carbs} />
-          <View style={styles.divider} />
-          <MacroBar label={t('fat')} value={totals.fat} target={targets.fat} color={MACRO.fat} />
-        </Card>
         {p.hint ? (
           <Animated.View key={p.hint.dir} entering={FadeIn.duration(300)} exiting={FadeOut.duration(200)} style={[styles.hint, SHADOW_SM]}>
             <ChevronIcon size={16} dir={p.hint.dir} color={INK_SOFT} />
@@ -188,12 +157,5 @@ const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
   pill: { marginTop: 16, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999 },
   pending: { marginTop: 8 },
-  card: { flexDirection: 'row', paddingVertical: 14, paddingHorizontal: 8, marginBottom: 14 },
-  divider: { width: 1, backgroundColor: INK_FAINT, marginVertical: 6 },
-  macro: { flex: 1, paddingHorizontal: 10 },
-  macroTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  track: { height: 6, borderRadius: 3, backgroundColor: INK_HAIR, marginTop: 8, overflow: 'hidden' },
-  fill: { height: 6, borderRadius: 3 },
   hint: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8, alignSelf: 'center', backgroundColor: 'rgba(255,255,255,0.86)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, overflow: 'hidden' },
 });

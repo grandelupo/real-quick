@@ -8,6 +8,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { load, setState, useStore } from './src/store';
 import { startAnalyzer } from './src/analyzer';
 import { startWidgetSync } from './src/widgets/sync';
+import { startShareSync } from './src/share';
 import { initIap } from './src/iap';
 import { Home } from './src/screens/Home';
 import { Onboarding } from './src/screens/Onboarding';
@@ -29,6 +30,7 @@ export default function App() {
     void load().then(() => {
       startAnalyzer();
       startWidgetSync();
+      startShareSync();
       void initIap();
     });
   }, []);

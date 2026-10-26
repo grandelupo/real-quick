@@ -4,17 +4,19 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { FadeIn, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { addDays, dayKey, dayPages, isNight, msUntilLookChange, weekdayIndex, type Entry } from '../engine';
+import { addDays, dayKey, dayPages, dayTotals, freeDaysLeft, isNight, macroTargets, msUntilLookChange, weekdayIndex, type Entry } from '../engine';
 import { dayLabel, t } from '../i18n';
 import { entriesFor, markSeen, useStore } from '../store';
 import { DAYS, INK, NIGHT_BG, SHADOW_SM, SURFACE } from '../theme';
 import { DayPage } from '../components/DayPage';
+import { MacroStrip } from '../components/MacroStrip';
+import { Forest } from '../forest/Forest';
 import { BAR_HEIGHT, CaptureBar, type CaptureHandle } from '../components/CaptureBar';
 import { SideNotes } from '../components/SideNotes';
 import { EditSheet } from '../components/EditSheet';
 import { SettingsSheet } from '../components/SettingsSheet';
 import { Paywall } from '../components/Paywall';
-import { ShareCardHost, type ShareHandle } from '../components/Share';
+import { ShareSheet } from '../components/ShareSheet';
 import { Toast, useToast } from '../components/Toast';
 import { CogIcon, NotesIcon, ShareIcon } from '../ui/Icons';
 import { TIMING } from '../ui/motion';
@@ -52,6 +54,7 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   const entries = useStore((s) => s.entries);
   const firstDay = useStore((s) => s.firstDay);
   const seen = useStore((s) => s.seen);
+  const isPro = useStore((s) => s.isPro);
 
   const today = dayKey(now);
   const yesterday = addDays(today, -1);
@@ -63,14 +66,18 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   const [notesOpen, setNotesOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(!!showPaywallOnMount);
+  const [shareOpen, setShareOpen] = useState(false);
   const [editing, setEditing] = useState<Entry | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
-  const sheetsOpen = settingsOpen || paywallOpen || editOpen;
+  const sheetsOpen = settingsOpen || paywallOpen || editOpen || shareOpen;
+  // The free window: 3 days from first launch, then every count needs Pro.
+  const daysLeft = freeDaysLeft(firstDay, today);
+  const locked = !isPro && daysLeft === 0;
+  const trialNote = isPro ? undefined : daysLeft === 0 ? t('trialOver') : daysLeft === 1 ? t('trialLastDay') : t('trialDaysLeft', { n: daysLeft });
 
   const list = useRef<FlatList<string>>(null);
   const capture = useRef<CaptureHandle>(null);
-  const shareRef = useRef<ShareHandle>(null);
   const toast = useToast();
 
   useEffect(() => {
@@ -93,6 +100,7 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
     setSettingsOpen(false);
     setPaywallOpen(false);
     setEditOpen(false);
+    setShareOpen(false);
     list.current?.scrollToOffset({ offset: 0, animated: false });
     setIndex(0);
     capture.current?.autoSnap(intent.fromWidget);
@@ -157,7 +165,17 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   const aboveBg = night ? NIGHT_BG : DAYS[weekdayIndex(above)].bg;
 
   const viewingEntries = useMemo(() => entriesFor(viewing, entries), [viewing, entries]);
-  const bottomReserve = Math.max(insets.bottom, 12) + BAR_HEIGHT + 18;
+  const barBottom = Math.max(insets.bottom, 12);
+  // The forest band: from the bottom edge up to a bit under the ring. The
+  // macro chips and the capture bar float over its foreground.
+  const forestH = Math.round(height * 0.46);
+  const stripBottom = barBottom + BAR_HEIGHT + 12;
+  const bottomReserve = forestH - 24;
+  const totals = useMemo(() => dayTotals(viewingEntries), [viewingEntries]);
+  const targets = useMemo(() => macroTargets(settings.goalKcal), [settings.goalKcal]);
+  const ratio = settings.goalKcal > 0 ? totals.kcal / settings.goalKcal : 0;
+  const growth = Math.min(1, ratio);
+  const over = Math.min(1, Math.max(0, (ratio - 1.05) / 0.5));
 
   // Quiet hints for the two gestures, until each has been used once.
   const hintFor = (day: string): { text: string; dir: 'up' | 'left' } | undefined => {
@@ -204,6 +222,7 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
                 topInset={insets.top}
                 bottomReserve={bottomReserve}
                 hint={hintFor(item)}
+                note={item === today ? trialNote : undefined}
               />
             )}
           />
@@ -245,18 +264,19 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
               setEditOpen(true);
             }}
             onPaywall={() => setPaywallOpen(true)}
+            locked={locked}
           />
         </View>
       </GestureDetector>
 
+      <Forest width={width} height={forestH} weekday={weekdayIndex(viewing)} growth={growth} over={over} night={night} active={appActive} />
+      <Animated.View style={[styles.strip, { bottom: stripBottom }, barStyle]} pointerEvents="none">
+        <MacroStrip totals={totals} targets={targets} night={night} />
+      </Animated.View>
+
       {/* top-right: share + settings */}
       <Animated.View style={[styles.topRight, { top: insets.top + 8 }, chromeStyle]} pointerEvents={notesOpen ? 'none' : 'box-none'}>
-        <Pressy
-          style={[styles.roundBtn, SHADOW_SM]}
-          onPress={() => void shareRef.current?.share(viewing, dayLabel(viewing, today, yesterday), viewingEntries, settings)}
-          accessibilityLabel={t('share')}
-          testID="share-button"
-        >
+        <Pressy style={[styles.roundBtn, SHADOW_SM]} onPress={() => setShareOpen(true)} accessibilityLabel={t('share')} testID="share-button">
           <ShareIcon size={21} />
         </Pressy>
         <Pressy style={[styles.roundBtn, SHADOW_SM]} onPress={() => setSettingsOpen(true)} accessibilityLabel={t('settings')} testID="settings-button">
@@ -268,6 +288,8 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
         <CaptureBar
           ref={capture}
           active={appActive && !sheetsOpen}
+          locked={locked}
+          onLocked={() => setPaywallOpen(true)}
           onToast={(m) => {
             toast.show(m);
             // A fresh snap always lands on today's page.
@@ -288,9 +310,13 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
           setSettingsOpen(false);
           setTimeout(() => setPaywallOpen(true), 260);
         }}
+        onShare={() => {
+          setSettingsOpen(false);
+          setTimeout(() => setShareOpen(true), 260);
+        }}
       />
       <Paywall visible={paywallOpen} onClose={() => setPaywallOpen(false)} />
-      <ShareCardHost ref={shareRef} />
+      <ShareSheet visible={shareOpen} onClose={() => setShareOpen(false)} onToast={(text) => toast.show({ text })} />
     </View>
   );
 }
@@ -298,6 +324,7 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: INK },
   topRight: { position: 'absolute', right: 16, flexDirection: 'row', gap: 10 },
+  strip: { position: 'absolute', left: 0, right: 0 },
   roundBtn: {
     width: 44,
     height: 44,

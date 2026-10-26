@@ -8,9 +8,13 @@ the model choice live here so they can change without an App Review
 
     POST /v1/analyze   {kind: "photo"|"text", image?: b64 jpeg, text?, lang, tz}
     GET  /healthz      {ok, key, root, provider, model}
+    POST /v1/share     {name?, unit?, days:{YYYY-MM-DD:{kcal,goal,protein,carbs,fat,entries:[{t,title,kcal}]}}} → {token, url}
+    DELETE /v1/share   stop sharing (X-Install-Id)
+    GET  /s/<token>    the live share page (HTML); GET /v1/share/<token> the same as JSON
 
 Auth without accounts: every install sends a random X-Install-Id. Free
-installs get FREE_PER_DAY counts per local day; Pro installs send their store
+installs get FREE_PER_DAY counts per local day for TRIAL_DAYS days from their
+first count, then nothing; Pro installs send their store
 receipt (iOS: the StoreKit 2 signed transaction JWS, verified against Apple's
 pinned root; Android: the Play purchase token, verified with the Play
 Developer API when a service account is configured).
@@ -27,8 +31,10 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import html
 import os
 import re
+import secrets
 import threading
 import time
 import urllib.error
@@ -48,10 +54,15 @@ PROVIDER = os.environ.get("PROVIDER", "anthropic")  # anthropic | perplexity | f
 MODEL = os.environ.get("MODEL", "claude-opus-5-5")
 EFFORT = os.environ.get("EFFORT", "low")
 PERPLEXITY_MODEL = os.environ.get("PERPLEXITY_MODEL", "sonar")
-FREE_PER_DAY = int(os.environ.get("FREE_PER_DAY", "3"))
+FREE_PER_DAY = int(os.environ.get("FREE_PER_DAY", "12"))
 PRO_PER_DAY = int(os.environ.get("PRO_PER_DAY", "60"))
 # Free counts per IP per day across all installs — stops reinstall farming.
 FREE_PER_IP = int(os.environ.get("FREE_PER_IP", "15"))
+# The free window: an install may count for this many local days from the day
+# it first asked; after that only a subscriber may count (every count costs us).
+TRIAL_DAYS = int(os.environ.get("TRIAL_DAYS", "3"))
+# Public base of the live share pages (/s/<token>), served by this process behind Caddy.
+SHARE_BASE = os.environ.get("SHARE_BASE", "https://realquick.lab.karolkrakowski.pl").rstrip("/")
 BUNDLE_ID = os.environ.get("BUNDLE_ID", "com.latovi.realquick")
 ANDROID_PACKAGE = os.environ.get("ANDROID_PACKAGE", "com.latovi.realquick")
 PRODUCT_IDS = {"com.latovi.realquick.pro.monthly", "com.latovi.realquick.pro.yearly"}
@@ -64,7 +75,7 @@ DEV_ALLOW_UNSIGNED = os.environ.get("DEV_ALLOW_UNSIGNED") == "1"
 MAX_BODY = 4 * 1024 * 1024
 TIMEOUT = 40
 
-ERROR_CODES = ("daily_limit", "bad_request", "unauthorized", "upstream", "rate_limited")
+ERROR_CODES = ("daily_limit", "trial_over", "bad_request", "unauthorized", "upstream", "rate_limited")
 
 # ---------------------------------------------------------------- prompt ---
 
@@ -426,6 +437,42 @@ def local_day(tz: str, now: float | None = None) -> str:
 
 QUOTA = Quota(STATE_FILE, threading.Lock())
 
+
+class JsonStore:
+    """A small dict persisted as one JSON file, written atomically under a lock."""
+
+    def __init__(self, path: Path):
+        self.path = path
+        self.lock = threading.Lock()
+        try:
+            self.data: dict = json.loads(path.read_text())
+        except (OSError, ValueError):
+            self.data = {}
+
+    def save(self):
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = self.path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(self.data, ensure_ascii=False))
+            tmp.replace(self.path)
+        except OSError as e:
+            log.warning("%s save failed: %s", self.path.name, e)
+
+
+INSTALLS = JsonStore(STATE_FILE.with_name("installs.json"))
+SHARES = JsonStore(STATE_FILE.with_name("shares.json"))
+
+
+def trial_day(install: str, day: str) -> int:
+    """0-based index of `day` in this install's free window (0 = first day it counted)."""
+    with INSTALLS.lock:
+        first = INSTALLS.data.get(install)
+        if not first:
+            INSTALLS.data[install] = first = day
+            INSTALLS.save()
+    delta = datetime.strptime(day, "%Y-%m-%d") - datetime.strptime(first, "%Y-%m-%d")
+    return max(0, delta.days)
+
 # ----------------------------------------------------------------- handler ---
 
 INSTALL_RE = re.compile(r"[0-9a-fA-F-]{16,64}")
@@ -471,6 +518,8 @@ def handle_analyze(headers, raw: bytes, ip: str) -> tuple[int, dict]:
     if sub:
         limits = [(f"sub:{sub}", PRO_PER_DAY)]
     else:
+        if trial_day(install, day) >= TRIAL_DAYS:
+            raise GatewayError("trial_over", 402, "free days over")
         limits = [(f"inst:{install}", FREE_PER_DAY), (f"ip:{ip}", FREE_PER_IP)]
     if not QUOTA.take(limits, day):
         log.info("limit pro=%s", bool(sub))
@@ -492,6 +541,148 @@ def handle_analyze(headers, raw: bytes, ip: str) -> tuple[int, dict]:
     return 200, {"title": result.get("title", ""), "items": result["items"][:12]}
 
 
+# ------------------------------------------------------------------ share ---
+# Live sharing without accounts: the app pushes a summary of its days (totals
+# and entry titles — never photos) under a random token; anyone with the link
+# sees today and the history at /s/<token> until the owner stops sharing.
+
+DAY_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+MAX_SHARE_DAYS = 120
+MAX_SHARE_ENTRIES = 40
+
+
+def _num(v, lo=0.0, hi=100000.0) -> float:
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return 0.0
+    if f != f:
+        return 0.0
+    return max(lo, min(hi, f))
+
+
+def validate_share(body: dict) -> dict:
+    name = body.get("name")
+    name = name.strip()[:40] if isinstance(name, str) else ""
+    unit = body.get("unit") if body.get("unit") in ("kcal", "kJ") else "kcal"
+    days_in = body.get("days")
+    if not isinstance(days_in, dict):
+        raise GatewayError("bad_request", 400, "days missing")
+    days = {}
+    for key in sorted(days_in, reverse=True)[:MAX_SHARE_DAYS]:
+        d = days_in[key]
+        if not (isinstance(key, str) and DAY_RE.fullmatch(key) and isinstance(d, dict)):
+            continue
+        entries = []
+        for e in (d.get("entries") or [])[:MAX_SHARE_ENTRIES]:
+            if not isinstance(e, dict):
+                continue
+            title = e.get("title")
+            entries.append({"t": str(e.get("t", ""))[:5], "title": (title.strip()[:60] if isinstance(title, str) else ""), "kcal": round(_num(e.get("kcal")))})
+        days[key] = {"kcal": round(_num(d.get("kcal"))), "goal": round(_num(d.get("goal"), 1, 20000)), "protein": round(_num(d.get("protein"))),
+                     "carbs": round(_num(d.get("carbs"))), "fat": round(_num(d.get("fat"))), "entries": entries}
+    return {"name": name, "unit": unit, "days": days}
+
+
+def handle_share_put(headers, raw: bytes) -> tuple[int, dict]:
+    install = headers.get("X-Install-Id", "")
+    if not INSTALL_RE.fullmatch(install):
+        raise GatewayError("unauthorized", 401, "install id missing")
+    try:
+        body = json.loads(raw)
+    except ValueError as e:
+        raise GatewayError("bad_request", 400, "json") from e
+    if not isinstance(body, dict):
+        raise GatewayError("bad_request", 400, "json shape")
+    share = validate_share(body)
+    with SHARES.lock:
+        index = SHARES.data.setdefault("_by_install", {})
+        token = index.get(install)
+        if not token or token not in SHARES.data:
+            token = secrets.token_urlsafe(9)
+            index[install] = token
+        SHARES.data[token] = {"install": install, "updated": time.time(), **share}
+        SHARES.save()
+    return 200, {"token": token, "url": f"{SHARE_BASE}/s/{token}"}
+
+
+def handle_share_delete(headers) -> tuple[int, dict]:
+    install = headers.get("X-Install-Id", "")
+    if not INSTALL_RE.fullmatch(install):
+        raise GatewayError("unauthorized", 401, "install id missing")
+    with SHARES.lock:
+        index = SHARES.data.setdefault("_by_install", {})
+        token = index.pop(install, None)
+        if token:
+            SHARES.data.pop(token, None)
+        SHARES.save()
+    return 200, {"ok": True}
+
+
+def share_for(token: str) -> dict | None:
+    if not re.fullmatch(r"[A-Za-z0-9_-]{8,24}", token or ""):
+        return None
+    with SHARES.lock:
+        return SHARES.data.get(token)
+
+
+SHARE_PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>__TITLE__</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#2B2350;--soft:rgba(43,35,80,.6);--hair:rgba(43,35,80,.08)}
+*{box-sizing:border-box;margin:0}body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:var(--ink);background:linear-gradient(180deg,var(--bg,#EEE9FF) 0%,#fff 70%);min-height:100vh;padding:28px 18px 60px;transition:background .6s}
+main{max-width:520px;margin:0 auto}h1{font-size:26px;font-weight:800;letter-spacing:-.6px}.sub{color:var(--soft);font-size:14px;margin-top:4px}
+.today{margin-top:22px;background:#fff;border-radius:28px;padding:22px;box-shadow:0 10px 30px rgba(43,35,80,.10);display:flex;gap:20px;align-items:center}
+.ring{width:132px;height:132px;flex:none;position:relative}.ring svg{transform:rotate(-90deg)}.ring circle{transition:stroke-dashoffset .9s cubic-bezier(.2,.7,.2,1)}.ring b{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:30px;font-weight:800;letter-spacing:-1px}.ring b span{font-size:11px;color:var(--soft);font-weight:600;letter-spacing:0}
+.macros{flex:1;display:grid;gap:10px}.m{font-size:13px;font-weight:600}.m i{display:inline-block;width:7px;height:7px;border-radius:4px;margin-right:6px}.bar{height:5px;border-radius:3px;background:var(--hair);margin-top:5px;overflow:hidden}.bar b{display:block;height:100%;border-radius:3px;transition:width .9s cubic-bezier(.2,.7,.2,1)}
+h2{font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--soft);margin:30px 0 10px}
+.day{background:#fff;border-radius:20px;padding:14px 16px;box-shadow:0 6px 18px rgba(43,35,80,.06);margin-bottom:10px}.day header{display:flex;justify-content:space-between;align-items:baseline;font-weight:800}.day header small{color:var(--soft);font-weight:600}
+.day ul{list-style:none;margin-top:8px;color:var(--soft);font-size:13px}.day li{display:flex;justify-content:space-between;padding:3px 0;border-top:1px solid var(--hair)}.day li span:first-child{color:var(--ink)}
+.foot{text-align:center;color:var(--soft);font-size:12px;margin-top:34px}
+</style></head><body><main>
+<h1 id="t">__TITLE__</h1><div class="sub" id="s"></div>
+<section class="today" id="today"></section>
+<h2>History</h2><div id="hist"></div>
+<div class="foot">Shared live from Real Quick · updates while they share</div>
+</main>
+<script>
+const TOKEN=__TOKEN__;let share=__SHARE__;
+const WEEK=[["Monday","#E3F6EC","#3FAF82"],["Tuesday","#FFE9DC","#F07E45"],["Wednesday","#EEE9FF","#7C63E0"],["Thursday","#FFF6D6","#E0A417"],["Friday","#FFE6EF","#EC5A8C"],["Saturday","#E4F2FF","#3F8ED6"],["Sunday","#EEF5DB","#6FA22E"]];
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=n=>Number(n||0).toLocaleString();
+const key=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const wd=k=>(new Date(k+'T12:00:00').getDay()+6)%7;
+const bar=(v,t,c)=>'<div class="bar"><b style="width:'+(t>0?Math.min(1,v/t)*100:0).toFixed(0)+'%;background:'+c+'"></b></div>';
+function render(){
+  const days=share.days||{},unit=share.unit||'kcal',today=key(new Date()),w=wd(today);
+  document.documentElement.style.setProperty('--bg',WEEK[w][1]);
+  document.getElementById('t').textContent=share.name?share.name+'’s days':'A day on Real Quick';
+  document.getElementById('s').textContent=WEEK[w][0]+' · live';
+  const d=days[today],T=document.getElementById('today');
+  if(d){const k=d.goal>0?Math.min(1,d.kcal/d.goal):0,c=2*Math.PI*54,over=d.kcal>d.goal*1.05,col=over?'#FF7F70':WEEK[w][2];
+    const p=d.goal*0.25/4,cb=d.goal*0.45/4,f=d.goal*0.30/9;
+    T.innerHTML='<div class="ring"><svg width="132" height="132"><circle cx="66" cy="66" r="54" stroke="rgba(43,35,80,.08)" stroke-width="12" fill="none"/><circle cx="66" cy="66" r="54" stroke="'+col+'" stroke-width="12" fill="none" stroke-linecap="round" stroke-dasharray="'+c.toFixed(1)+'" stroke-dashoffset="'+(c*(1-k)).toFixed(1)+'"/></svg><b>'+fmt(d.kcal)+'<span>of '+fmt(d.goal)+' '+unit+'</span></b></div>'+
+      '<div class="macros"><div class="m"><i style="background:#FF7F70"></i>Protein '+fmt(d.protein)+' g'+bar(d.protein,p,'#FF7F70')+'</div><div class="m"><i style="background:#FFB938"></i>Carbs '+fmt(d.carbs)+' g'+bar(d.carbs,cb,'#FFB938')+'</div><div class="m"><i style="background:#46BFA0"></i>Fat '+fmt(d.fat)+' g'+bar(d.fat,f,'#46BFA0')+'</div></div>';
+  } else T.innerHTML='<div class="sub">Nothing counted yet today.</div>';
+  const keys=Object.keys(days).filter(k=>k!==today).sort().reverse();
+  document.getElementById('hist').innerHTML=keys.length?keys.map(k=>{const v=days[k],dt=new Date(k+'T12:00:00'),over=v.kcal>v.goal*1.05;
+    return '<article class="day"><header><span>'+dt.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'})+'</span><small>'+fmt(v.kcal)+' / '+fmt(v.goal)+' '+unit+'</small></header>'+bar(v.kcal,v.goal,over?'#FF7F70':WEEK[wd(k)][2])+'<ul>'+(v.entries||[]).map(e=>'<li><span>'+esc(e.title||'Snapped')+'</span><span>'+fmt(e.kcal)+'</span></li>').join('')+'</ul></article>';}).join(''):'<div class="sub">No earlier days yet.</div>';
+}
+render();
+setInterval(async()=>{try{const r=await fetch('/v1/share/'+TOKEN,{cache:'no-store'});if(r.status===404){location.reload();return;}share=await r.json();render();}catch(e){}},60000);
+</script></body></html>"""
+
+
+def render_share(token: str, share: dict) -> str:
+    """The page renders itself from the embedded JSON (the viewer's clock
+    decides what "today" is) and refreshes from /v1/share/<token> every minute."""
+    name = share.get("name") or ""
+    public = {k: v for k, v in share.items() if k != "install"}
+    data = json.dumps(public, ensure_ascii=False).replace("</", "<\\/")
+    title = f"{name}’s days" if name else "A day on Real Quick"
+    return SHARE_PAGE.replace("__TITLE__", html.escape(title)).replace("__TOKEN__", json.dumps(token)).replace("__SHARE__", data)
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "realquick/1"
 
@@ -505,35 +696,73 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _send_html(self, status: int, body: str):
+        data = body.encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(data)
+
     def do_OPTIONS(self):  # noqa: N802
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Install-Id, X-Platform, X-Purchase-Token")
-        self.send_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "POST, GET, DELETE, OPTIONS")
         self.end_headers()
 
     def do_GET(self):  # noqa: N802
-        if self.path == "/healthz":
+        path = self.path.split("?")[0]
+        if path == "/healthz":
             self._send(200, {"ok": True, "key": provider_ready(), "root": APPLE_ROOT.exists(), "provider": PROVIDER, "model": {"anthropic": MODEL, "perplexity": PERPLEXITY_MODEL}.get(PROVIDER, PROVIDER)})
+        elif path.startswith("/s/"):
+            share = share_for(path[3:])
+            if not share:
+                self._send_html(404, "<!doctype html><meta charset=utf-8><title>Real Quick</title><p style='font-family:system-ui;padding:40px'>This link is no longer shared.</p>")
+            else:
+                self._send_html(200, render_share(path[3:], share))
+        elif path.startswith("/v1/share/"):
+            share = share_for(path[len("/v1/share/"):])
+            if not share:
+                self._send(404, {"error": {"code": "bad_request"}})
+            else:
+                self._send(200, {k: v for k, v in share.items() if k != "install"})
         else:
             self._send(404, {"error": {"code": "bad_request"}})
 
+    def _body(self) -> bytes:
+        length = int(self.headers.get("Content-Length", "0"))
+        if not (0 < length <= MAX_BODY):
+            raise GatewayError("bad_request", 413, f"length {length}")
+        return self.rfile.read(length)
+
     def do_POST(self):  # noqa: N802
-        if self.path != "/v1/analyze":
-            self._send(404, {"error": {"code": "bad_request"}})
-            return
         started = time.time()
         try:
-            length = int(self.headers.get("Content-Length", "0"))
-            if not (0 < length <= MAX_BODY):
-                raise GatewayError("bad_request", 413, f"length {length}")
-            raw = self.rfile.read(length)
-            ip = self.headers.get("X-Forwarded-For", self.client_address[0]).split(",")[0].strip()
-            status, payload = handle_analyze(self.headers, raw, ip)
-            log.info("analyze ok items=%d ms=%d", len(payload["items"]), (time.time() - started) * 1000)
+            if self.path == "/v1/analyze":
+                raw = self._body()
+                ip = self.headers.get("X-Forwarded-For", self.client_address[0]).split(",")[0].strip()
+                status, payload = handle_analyze(self.headers, raw, ip)
+                log.info("analyze ok items=%d ms=%d", len(payload["items"]), (time.time() - started) * 1000)
+            elif self.path == "/v1/share":
+                status, payload = handle_share_put(self.headers, self._body())
+                log.info("share updated")
+            else:
+                raise GatewayError("bad_request", 404, "no such path")
             self._send(status, payload)
         except GatewayError as e:
-            log.info("analyze refused code=%s why=%s platform=%s", e.code, e.why, self.headers.get("X-Platform"))
+            log.info("%s refused code=%s why=%s platform=%s", self.path, e.code, e.why, self.headers.get("X-Platform"))
+            self._send(e.status, {"error": {"code": e.code}})
+
+    def do_DELETE(self):  # noqa: N802
+        try:
+            if self.path != "/v1/share":
+                raise GatewayError("bad_request", 404, "no such path")
+            status, payload = handle_share_delete(self.headers)
+            log.info("share stopped")
+            self._send(status, payload)
+        except GatewayError as e:
             self._send(e.status, {"error": {"code": e.code}})
 
     def log_message(self, fmt, *args):  # quiet default access log; we log our own lines

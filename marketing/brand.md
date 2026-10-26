@@ -84,7 +84,6 @@ food").
 
 ## 8. App icon
 
-The pizza-that-is-a-pie-chart mark (`marketing/brand/icon.svg`, with the
-kawaii face) predates the clay look. A soft-3D replacement is drafted in
-`marketing/brand-art/raw/icon.png` when present; switching it means
-replacing `app/assets/icon.png`, the Android foreground and the splash icon.
+The pizza-that-is-a-pie-chart mascot (`marketing/brand/icon.svg`, with the
+face) stays — Karol prefers it to the clay draft in
+`marketing/brand-art/raw/icon.png`. It is the one place the face appears.

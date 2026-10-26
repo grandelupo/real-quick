@@ -38,8 +38,8 @@ async function processOne(e: Entry) {
     }
   } catch (err) {
     const code = err instanceof ApiError ? err.code : 'network';
-    if (code === 'daily_limit') {
-      updateEntry(e.id, { status: 'limit', attempts: e.attempts + 1 });
+    if (code === 'daily_limit' || code === 'trial_over') {
+      updateEntry(e.id, { status: 'limit', problem: code === 'trial_over' ? 'trial' : undefined, attempts: e.attempts + 1 });
       return;
     }
     const attempts = e.attempts + 1;
@@ -53,11 +53,14 @@ async function processOne(e: Entry) {
   }
 }
 
-/** Entries that hit the free limit on an earlier day get a fresh quota today. */
+/** Entries that hit the daily cap on an earlier day get a fresh quota today;
+ * ones blocked because the free days are over wait for Pro. */
 function releaseStaleLimits() {
   const today = dayKey(new Date());
+  const pro = getState().isPro;
   for (const e of getState().entries) {
-    if (e.status === 'limit' && (e.dayKey < today || getState().isPro)) updateEntry(e.id, { status: 'pending', attempts: 0 });
+    if (e.status !== 'limit') continue;
+    if (pro || (e.problem !== 'trial' && e.dayKey < today)) updateEntry(e.id, { status: 'pending', problem: undefined, attempts: 0 });
   }
 }
 

@@ -42,10 +42,13 @@ export interface CaptureHandle {
 interface Props {
   /** False while a sheet covers the screen — the camera sleeps. */
   active: boolean;
+  /** The free days are over and there is no Pro: a tap opens the paywall instead. */
+  locked: boolean;
+  onLocked(): void;
   onToast(msg: { text: string; sub?: string; action?: { label: string; run(): void } }): void;
 }
 
-export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({ active, onToast }, ref) {
+export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({ active, locked, onLocked, onToast }, ref) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [perm, requestPerm] = useCameraPermissions();
@@ -83,6 +86,19 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
     height: interpolate(k.value, [0, 1], [small.h, large.h]),
     borderRadius: interpolate(k.value, [0, 1], [small.r, large.r]),
   }));
+  // The camera view itself is never resized (native preview layers lag behind
+  // layout animation): it stays at the big size and is scaled and centred
+  // inside the animated clip, so it tracks the box frame for frame and
+  // covers it exactly at both ends.
+  const camStyle = useAnimatedStyle(() => {
+    const w = interpolate(k.value, [0, 1], [small.w, large.w]);
+    const h = interpolate(k.value, [0, 1], [small.h, large.h]);
+    const s0 = Math.max(small.w / large.w, small.h / large.h);
+    return {
+      transform: [{ translateX: (w - large.w) / 2 }, { translateY: (h - large.h) / 2 }, { scale: interpolate(k.value, [0, 1], [s0, 1]) }],
+    };
+  });
+  const smallEdgeStyle = useAnimatedStyle(() => ({ opacity: 1 - k.value }));
   const backdropStyle = useAnimatedStyle(() => ({ opacity: k.value * 0.5 }));
   const bigChrome = useAnimatedStyle(() => ({ opacity: interpolate(k.value, [0.6, 1], [0, 1], 'clamp') }));
   const flashStyle = useAnimatedStyle(() => ({ opacity: flash.value }));
@@ -106,6 +122,10 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
   const snap = useCallback(
     async (source: 'photo' | 'widget' = 'photo') => {
       if (busy) return;
+      if (locked) {
+        onLocked();
+        return;
+      }
       if (!granted) {
         const r = await requestPerm();
         if (!r.granted) {
@@ -144,7 +164,7 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
         setBusy(false);
       }
     },
-    [busy, granted, ready, requestPerm, onToast, flash, fly, big],
+    [busy, locked, onLocked, granted, ready, requestPerm, onToast, flash, fly, big],
   );
 
   // Deep-link / widget auto snap: wait for the camera, then fire once.
@@ -221,22 +241,26 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
 
       {/* the one camera: small next to the button, or big when tapped */}
       <Animated.View style={[styles.preview, SHADOW, previewStyle]}>
-        {granted ? (
-          <CameraView
-            ref={cam}
-            style={StyleSheet.absoluteFill}
-            facing="back"
-            active={active}
-            animateShutter={false}
-            onCameraReady={() => setReady(true)}
-            onMountError={() => setReady(false)}
-          />
-        ) : (
-          <View style={[StyleSheet.absoluteFill, styles.noCam]}>
-            <Hero kind="camera" size={46} shadow={false} />
-          </View>
-        )}
-        <View pointerEvents="none" style={styles.previewEdge} />
+        <Animated.View style={[styles.previewClip, previewStyle, { left: 0, top: 0 }]}>
+          <Animated.View style={[styles.camBox, { width: large.w, height: large.h }, camStyle]}>
+            {granted ? (
+              <CameraView
+                ref={cam}
+                style={StyleSheet.absoluteFill}
+                facing="back"
+                active={active}
+                animateShutter={false}
+                onCameraReady={() => setReady(true)}
+                onMountError={() => setReady(false)}
+              />
+            ) : (
+              <View style={[StyleSheet.absoluteFill, styles.noCam]}>
+                <Hero kind="camera" size={Math.round(large.w * 0.3)} shadow={false} />
+              </View>
+            )}
+          </Animated.View>
+        </Animated.View>
+        <Animated.View pointerEvents="none" style={[styles.previewEdge, smallEdgeStyle]} />
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: '#FFFFFF' }, flashStyle]} />
         {!big && (
           <Pressy
@@ -288,7 +312,9 @@ const styles = StyleSheet.create({
   labelWrap: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   label: { fontFamily: FONT.displayMedium, fontSize: 16, lineHeight: 21, textAlign: 'center' },
   inlineIcon: { marginTop: -2 },
-  preview: { position: 'absolute', overflow: 'hidden', backgroundColor: INK },
+  preview: { position: 'absolute' },
+  previewClip: { position: 'absolute', overflow: 'hidden', backgroundColor: INK },
+  camBox: { position: 'absolute', left: 0, top: 0 },
   previewEdge: { ...ABS, borderRadius: 20, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.7)' },
   noCam: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFE9EF' },
   close: {

@@ -13,7 +13,7 @@ export const GATEWAY_URL: string =
   'https://realquick.lab.karolkrakowski.pl';
 
 /** Wire codes — must equal the gateway's `error.code` values (server/test_gateway.py pins them). */
-export type ApiErrorCode = 'daily_limit' | 'bad_request' | 'unauthorized' | 'upstream' | 'rate_limited' | 'network';
+export type ApiErrorCode = 'daily_limit' | 'trial_over' | 'bad_request' | 'unauthorized' | 'upstream' | 'rate_limited' | 'network';
 
 export class ApiError extends Error {
   constructor(public code: ApiErrorCode, message?: string) {
@@ -21,7 +21,7 @@ export class ApiError extends Error {
   }
 }
 
-const KNOWN: ApiErrorCode[] = ['daily_limit', 'bad_request', 'unauthorized', 'upstream', 'rate_limited'];
+const KNOWN: ApiErrorCode[] = ['daily_limit', 'trial_over', 'bad_request', 'unauthorized', 'upstream', 'rate_limited'];
 
 function tzOffset(): string {
   const m = -new Date().getTimezoneOffset();
@@ -72,4 +72,50 @@ export function analyzePhoto(imageBase64: string): Promise<Analysis> {
 
 export function analyzeText(text: string): Promise<Analysis> {
   return post({ kind: 'text', text: text.slice(0, 500) });
+}
+
+// ---------------------------------------------------------------- sharing --
+
+export interface SharePayload {
+  name: string;
+  unit: 'kcal' | 'kJ';
+  days: Record<string, { kcal: number; goal: number; protein: number; carbs: number; fat: number; entries: { t: string; title: string; kcal: number }[] }>;
+}
+
+async function call(path: string, method: 'POST' | 'DELETE', body?: unknown): Promise<unknown> {
+  const s = getState();
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20_000);
+  let res: Response;
+  try {
+    res = await fetch(`${GATEWAY_URL}${path}`, {
+      method,
+      signal: ctrl.signal,
+      headers: { 'Content-Type': 'application/json', 'X-Install-Id': s.installId, 'X-Platform': Platform.OS },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError('network');
+  } finally {
+    clearTimeout(timer);
+  }
+  let json: unknown = null;
+  try {
+    json = await res.json();
+  } catch {
+    json = null;
+  }
+  if (!res.ok) throw new ApiError(res.status >= 500 ? 'upstream' : 'bad_request');
+  return json;
+}
+
+/** Create or refresh the live share; the token stays the same for this install. */
+export async function putShare(payload: SharePayload): Promise<{ token: string; url: string }> {
+  const r = (await call('/v1/share', 'POST', payload)) as { token?: string; url?: string } | null;
+  if (!r?.token || !r.url) throw new ApiError('upstream');
+  return { token: r.token, url: r.url };
+}
+
+export async function deleteShare(): Promise<void> {
+  await call('/v1/share', 'DELETE');
 }

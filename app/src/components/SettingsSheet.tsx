@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Alert, Linking, Platform, StyleSheet, View } from 'react-native';
 import * as Application from 'expo-application';
-import { GOAL_MAX, GOAL_MIN, GOAL_STEP, toUnit, type Bias, type Profile } from '../engine';
+import { GOAL_MAX, GOAL_MIN, GOAL_STEP, dayKey, freeDaysLeft, toUnit, type Bias, type Profile } from '../engine';
 import { n, t } from '../i18n';
 import { manageSubscriptions, restore } from '../iap';
 import { LINKS } from '../links';
@@ -9,16 +9,19 @@ import { deleteAllPhotos } from '../photos';
 import { eraseAll, setSettings, setState, useStore } from '../store';
 import { BLUSH, INK, INK_FAINT, INK_SOFT } from '../theme';
 import { Pressy, T } from '../ui/kit';
-import { Button, Field, SectionTitle, Segmented, Stepper, ToggleRow } from '../ui/controls';
+import { Button, SectionTitle, Segmented, Stepper, ToggleRow } from '../ui/controls';
 import { GoalCalculator } from './GoalCalculator';
 import { Sheet } from './Sheet';
 
 // The cog sheet: the handful of things worth tuning, plus the plumbing App
 // Review expects (plan status, restore, manage, legal, version line).
 
-export function SettingsSheet({ visible, onClose, onPaywall }: { visible: boolean; onClose(): void; onPaywall(): void }) {
+export function SettingsSheet({ visible, onClose, onPaywall, onShare }: { visible: boolean; onClose(): void; onPaywall(): void; onShare(): void }) {
   const settings = useStore((s) => s.settings);
   const isPro = useStore((s) => s.isPro);
+  const share = useStore((s) => s.share);
+  const firstDay = useStore((s) => s.firstDay);
+  const daysLeft = freeDaysLeft(firstDay, dayKey(new Date()));
   const [calc, setCalc] = useState(false);
   const [calcGoal, setCalcGoal] = useState<{ goal: number; profile: Profile } | null>(null);
   const version = `v${Application.nativeApplicationVersion ?? '1.0.0'} (${Application.nativeBuildVersion ?? '1'})`;
@@ -113,8 +116,15 @@ export function SettingsSheet({ visible, onClose, onPaywall }: { visible: boolea
         ]}
       />
 
-      <SectionTitle>{t('partner')}</SectionTitle>
-      <Field value={settings.partnerName} onChangeText={(partnerName) => setSettings({ partnerName })} placeholder={t('partnerPlaceholder')} maxLength={30} />
+      <SectionTitle>{t('sharing')}</SectionTitle>
+      <T v="small" color={INK_SOFT}>
+        {share ? t('shareOn') : t('shareOff')}
+      </T>
+      <Pressy onPress={onShare} style={styles.link} hapticKind="light">
+        <T v="label" color={INK_SOFT}>
+          {t('shareManage')}
+        </T>
+      </Pressy>
 
       <View style={{ height: 12 }} />
       <ToggleRow label={t('nightLook')} value={settings.nightLook} onChange={(nightLook) => setSettings({ nightLook })} />
@@ -138,7 +148,7 @@ export function SettingsSheet({ visible, onClose, onPaywall }: { visible: boolea
           </T>
         </View>
         <T v="body" style={{ flex: 1 }}>
-          {isPro ? t('proActive') : t('proFree')}
+          {isPro ? t('proActive') : `${t('proFree')} ${daysLeft > 0 ? t('trialDaysLeft', { n: daysLeft }) : ''}`.trim()}
         </T>
       </View>
       {!isPro && <Button label={t('upgrade')} onPress={onPaywall} />}

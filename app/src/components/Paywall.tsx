@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { Hero } from '../art/Hero';
+import { dayKey, freeDaysLeft } from '../engine';
 import { locale, t } from '../i18n';
 import { buy, loadPlans, perDay, restore, savingsPercent, type Plan } from '../iap';
 import { useStore } from '../store';
@@ -29,6 +30,8 @@ function trialWord(p: Plan) {
 
 export function Paywall({ visible, onClose }: { visible: boolean; onClose(): void }) {
   const isPro = useStore((s) => s.isPro);
+  const firstDay = useStore((s) => s.firstDay);
+  const locked = !isPro && freeDaysLeft(firstDay, dayKey(new Date())) === 0;
   const [plans, setPlans] = useState<Plan[] | null>(null);
   const [sel, setSel] = useState<string>('');
   const [busy, setBusy] = useState(false);
@@ -121,7 +124,7 @@ export function Paywall({ visible, onClose }: { visible: boolean; onClose(): voi
       <View style={styles.hero}>
         <Hero kind="camera" size={120} />
         <T v="title" style={styles.center}>
-          {thanks ? t('pwThanks') : t('pwTitle')}
+          {thanks ? t('pwThanks') : locked ? t('pwTitleLocked') : t('pwTitle')}
         </T>
         <T v="body" color={INK_SOFT} style={styles.center}>
           {t('pwBody')}

@@ -1,18 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { FlatList, Image, KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition, useAnimatedStyle, useSharedValue, withRepeat, withTiming, type SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { entryMacros, parseLocally, toUnit, type Entry, type Settings } from '../engine';
+import { LinearGradient } from 'expo-linear-gradient';
+import { entryMacros, parseLocally, toUnit, weekdayIndex, type Entry, type Settings } from '../engine';
 import { n, t, locale } from '../i18n';
 import { addEntry } from '../store';
 import { retry } from '../analyzer';
-import { BLUSH, FONT, INK, INK_FAINT, INK_HAIR, INK_SOFT, PAPER, SHADOW, SURFACE } from '../theme';
+import { BLUSH, DAYS, FONT, INK, INK_FAINT, INK_HAIR, INK_SOFT, SHADOW, SHADOW_SM, SURFACE } from '../theme';
 import { EASE_OUT } from '../ui/motion';
 import { Pressy, T, haptic } from '../ui/kit';
 import { CloseIcon, LockIcon, PencilIcon, PlateIcon, RetryIcon, SendIcon } from '../ui/Icons';
 
-// The food list: a sheet that slides in from the right with the day's
-// entries. Fix, remove, or just type what you ate.
+// The food list: a notebook page that slides in from the right with the
+// day's entries written on its lines. Fix, remove, or just type what you ate.
+
+const ROW = 74; // one entry per ruled line
+const PAPER = '#FFFCF4';
 
 function Shimmer() {
   const o = useSharedValue(0.35);
@@ -46,12 +50,14 @@ function Row({ e, settings, onEdit, onPaywall }: { e: Entry; settings: Settings;
     <Animated.View entering={FadeIn.duration(260)} exiting={FadeOut.duration(180)} layout={LinearTransition.duration(260).easing(EASE_OUT)}>
       <Pressy style={styles.row} scaleTo={0.985} onPress={() => onEdit(e)} accessibilityLabel={`${entryTitle(e)}, ${n(toUnit(m.kcal, settings.unit))} ${settings.unit}`}>
         {e.photoUri ? (
-          <Image source={{ uri: e.photoUri }} style={styles.thumb} />
+          <View style={[styles.print, SHADOW_SM]}>
+            <Image source={{ uri: e.photoUri }} style={styles.thumb} />
+          </View>
         ) : (
-          <View style={[styles.thumb, styles.thumbTyped]}>{e.source === 'text' ? <PencilIcon size={20} color={INK_SOFT} /> : <PlateIcon size={22} color={INK_SOFT} />}</View>
+          <View style={styles.mark}>{e.source === 'text' ? <PencilIcon size={18} color={INK_SOFT} /> : <PlateIcon size={20} color={INK_SOFT} />}</View>
         )}
         <View style={{ flex: 1 }}>
-          <T v="label" numberOfLines={1}>
+          <T v="h2" style={{ fontSize: 17 }} numberOfLines={1}>
             {entryTitle(e)}
           </T>
           {e.status === 'pending' && <Shimmer />}
@@ -67,13 +73,17 @@ function Row({ e, settings, onEdit, onPaywall }: { e: Entry; settings: Settings;
           )}
           {e.status === 'limit' && (
             <T v="small" color={INK_SOFT} numberOfLines={2}>
-              {t('limitReached')}
+              {e.problem === 'trial' ? t('trialOver') : t('limitReached')}
             </T>
           )}
         </View>
         {e.status === 'ready' && (
           <T v="h2" style={{ marginLeft: 8 }}>
             {n(toUnit(m.kcal, settings.unit))}
+            <T v="small" color={INK_SOFT}>
+              {' '}
+              {settings.unit}
+            </T>
           </T>
         )}
         {e.status === 'failed' && (
@@ -102,6 +112,7 @@ export function SideNotes({
   onClose,
   onEdit,
   onPaywall,
+  locked,
 }: {
   progress: SharedValue<number>;
   width: number;
@@ -113,6 +124,8 @@ export function SideNotes({
   onClose(): void;
   onEdit(e: Entry): void;
   onPaywall(): void;
+  /** Free days over, no Pro: typing opens the paywall. */
+  locked?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
@@ -120,10 +133,17 @@ export function SideNotes({
 
   const panel = useAnimatedStyle(() => ({ transform: [{ translateX: (1 - progress.value) * (panelW + 24) }] }));
   const scrim = useAnimatedStyle(() => ({ opacity: progress.value * 0.3 }));
+  const rules = useMemo(() => Array.from({ length: 30 }, (_, i) => i), []);
+  const top = insets.top + 12 + 56; // where the first line starts, under the header
+  const dayName = DAYS[weekdayIndex(day)].name;
 
   const submit = () => {
     const v = text.trim();
     if (!v) return;
+    if (locked) {
+      onPaywall();
+      return;
+    }
     // Typed food is filed on the day being viewed, at "now" on that day.
     const at = new Date();
     if (!isToday) {
@@ -141,6 +161,16 @@ export function SideNotes({
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: INK }, scrim]} pointerEvents="none" />
       <Animated.View style={[styles.panel, SHADOW, { width: panelW, paddingTop: insets.top + 12 }, panel]}>
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          {rules.map((i) => (
+            <View key={i} style={[styles.rule, { top: top + 8 + (i + 1) * ROW }]} />
+          ))}
+          <View style={styles.marginLine} />
+          <LinearGradient colors={['rgba(43,35,80,0.10)', 'rgba(43,35,80,0)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.spine} />
+          <T v="hero" style={[styles.watermark, { top: top - 10 }]} color="rgba(43,35,80,0.045)" numberOfLines={1}>
+            {dayName}
+          </T>
+        </View>
         <View style={styles.header}>
           <T v="title" style={{ flex: 1 }} numberOfLines={1} accessibilityRole="header">
             {title}
@@ -155,7 +185,6 @@ export function SideNotes({
             keyExtractor={(e) => e.id}
             contentContainerStyle={{ paddingBottom: 16, paddingTop: 8 }}
             renderItem={({ item }) => <Row e={item} settings={settings} onEdit={onEdit} onPaywall={onPaywall} />}
-            ItemSeparatorComponent={() => <View style={styles.sep} />}
             ListEmptyComponent={
               <View style={styles.empty}>
                 <View style={styles.emptyMark}>
@@ -202,12 +231,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     overflow: 'hidden',
   },
-  header: { flexDirection: 'row', alignItems: 'center', marginTop: 8, marginBottom: 6, paddingLeft: 6 },
+  header: { flexDirection: 'row', alignItems: 'center', marginTop: 8, marginBottom: 6, paddingLeft: 6, height: 48 },
   closeBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: INK_FAINT },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 6, borderRadius: 18 },
-  sep: { height: 1, backgroundColor: INK_HAIR, marginLeft: 68 },
-  thumb: { width: 50, height: 50, borderRadius: 14, backgroundColor: SURFACE },
-  thumbTyped: { alignItems: 'center', justifyContent: 'center', backgroundColor: INK_HAIR },
+  rule: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: 'rgba(96,120,200,0.13)' },
+  marginLine: { position: 'absolute', left: 60, top: 0, bottom: 0, width: 1, backgroundColor: 'rgba(255,120,150,0.22)' },
+  spine: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 14 },
+  watermark: { position: 'absolute', right: 14, fontSize: 56, lineHeight: 64, letterSpacing: -2, textTransform: 'uppercase' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, height: ROW, paddingHorizontal: 6 },
+  print: { width: 50, height: 50, borderRadius: 8, backgroundColor: SURFACE, padding: 2, transform: [{ rotate: '-3deg' }] },
+  thumb: { width: 46, height: 46, borderRadius: 6 },
+  mark: { width: 50, height: 50, alignItems: 'center', justifyContent: 'center' },
   chip: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: INK_FAINT },
   empty: { alignItems: 'center', paddingTop: 56, paddingHorizontal: 24 },
   emptyMark: { width: 72, height: 72, borderRadius: 36, backgroundColor: INK_HAIR, alignItems: 'center', justifyContent: 'center' },

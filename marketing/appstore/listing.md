@@ -41,7 +41,7 @@ HOW IT WORKS
 • Today’s calories and macros, front and centre, against your daily goal.
 • Swipe up and down to visit other days. Every weekday has its own soft colour and object; after 8 pm everything turns into a calm night sheet.
 • Swipe left for the food list: fix a portion, remove something, or just type “2 eggs and toast”.
-• Share your day with your partner as a card, straight to Messages or WhatsApp.
+• Share a live link with your partner: they see today and your history for as long as you keep sharing.
 
 SNAP FROM THE LOCK SCREEN
 Add the Snap widget to your Lock Screen, or the Snap control in place of the flashlight (iOS 18). One tap opens the camera and snaps — that’s the whole interaction.
@@ -56,12 +56,12 @@ PRIVATE BY DEFAULT
 No account. Your food diary stays on your iPhone. A photo is sent only to count it and is not kept on our servers.
 
 REAL QUICK PRO
-Free includes 3 AI counts every day; common foods you type are always free. Pro removes the limit for photos, typed meals and widget snaps.
+The first 3 days are free, every feature included. After that, Real Quick Pro counts every photo, typed meal and widget snap — each count runs a real vision model, which is what the subscription pays for.
 
-• Real Quick Pro Monthly — $4.99 per month, with a 1-week free trial for new subscribers.
-• Real Quick Pro Yearly — $29.99 per year, with a 1-week free trial for new subscribers.
+• Real Quick Pro Monthly — $4.99 per month.
+• Real Quick Pro Yearly — $29.99 per year.
 
-Payment is charged to your Apple Account at confirmation of purchase, after the free trial ends. The subscription renews automatically unless it is cancelled at least 24 hours before the end of the current period; your account is charged for renewal within 24 hours before the end of the period. Manage or cancel any time in Settings ▸ [your name] ▸ Subscriptions. Any unused part of a free trial is forfeited when you buy a subscription.
+Payment is charged to your Apple Account at confirmation of purchase. The subscription renews automatically unless it is cancelled at least 24 hours before the end of the current period; your account is charged for renewal within 24 hours before the end of the period. Manage or cancel any time in Settings ▸ [your name] ▸ Subscriptions.
 
 Terms of Use (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
 Privacy Policy: https://karolkrakowski.pl/apps/real-quick/privacy.htm
@@ -97,7 +97,7 @@ Real Quick – いちばん速いカロリー計算アプリ。
 ・今日のカロリーとPFCを、目標と一緒にひと目で。
 ・上下にスワイプで他の日へ。曜日ごとにやさしい色とオブジェが変わり、20時以降は落ち着いた夜の画面に。
 ・左にスワイプで食事リスト。量の修正、削除、「卵2個とトースト」のような入力もできます。
-・今日の記録をカードにして、パートナーにシェア。
+・パートナーにライブのリンクをシェア。シェアしている間、今日の記録と履歴を見てもらえます。
 
 ロック画面からワンタップ
 ロック画面に「撮影」ウィジェットを追加、またはiOS 18なら懐中電灯の代わりに「撮影」コントロールを置けます。タップするだけで撮影。
@@ -112,12 +112,12 @@ Real Quick は、食べたものを写真1枚の速さで記録することだ�
 アカウント不要。食事の記録はiPhoneの中だけに保存されます。写真は計算のためだけに送信され、サーバーには保存されません。
 
 Real Quick Pro
-無料プランではAI計算が1日3回まで。よくある食品の入力はいつでも無料です。Proなら写真・入力・ウィジェットからの撮影が無制限になります。
+最初の3日間はすべての機能が無料です。その後は Real Quick Pro が写真・入力・ウィジェットからの撮影をすべて計算します。1回ごとに本物のAIモデルが動いており、その費用をサブスクリプションがまかないます。
 
-・Real Quick Pro 月額 — 月額 ¥800、新規登録は1週間無料
-・Real Quick Pro 年額 — 年額 ¥5,000、新規登録は1週間無料
+・Real Quick Pro 月額 — 月額 ¥800
+・Real Quick Pro 年額 — 年額 ¥5,000
 
-お支払いは無料期間終了後、購入の確定時にApple Accountに請求されます。現在の期間が終わる24時間前までに解約しない限り、サブスクリプションは自動更新され、期間終了前24時間以内に更新料金が請求されます。管理・解約は「設定」▸［ユーザ名］▸「サブスクリプション」からいつでも行えます。サブスクリプションを購入すると、無料期間の未使用分は失われます。
+お支払いは購入の確定時にApple Accountに請求されます。現在の期間が終わる24時間前までに解約しない限り、サブスクリプションは自動更新され、期間終了前24時間以内に更新料金が請求されます。管理・解約は「設定」▸［ユーザ名］▸「サブスクリプション」からいつでも行えます。
 
 利用規約（EULA）: https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
 プライバシーポリシー: https://karolkrakowski.pl/apps/real-quick/privacy.htm
@@ -134,8 +134,8 @@ Group: **Real Quick Pro** (ja: `Real Quick Pro`).
 
 | Product ID | Duration | Price (US) | Intro offer | en display name / description | ja display name / description |
 |---|---|---|---|---|---|
-| `com.latovi.realquick.pro.monthly` | 1 month | $4.99 | 1 week free | `Real Quick Pro Monthly` (22) / `Unlimited AI food counts, billed monthly` (40) | `Real Quick Pro 月額` (17) / `AIの食事計算が無制限（毎月請求）` (17) |
-| `com.latovi.realquick.pro.yearly` | 1 year | $29.99 | 1 week free | `Real Quick Pro Yearly` (21) / `Unlimited AI food counts, billed yearly` (39) | `Real Quick Pro 年額` (17) / `AIの食事計算が無制限（毎年請求）` (17) |
+| `com.latovi.realquick.pro.monthly` | 1 month | $4.99 | none | `Real Quick Pro Monthly` (22) / `Unlimited AI food counts, billed monthly` (40) | `Real Quick Pro 月額` (17) / `AIの食事計算が無制限（毎月請求）` (17) |
+| `com.latovi.realquick.pro.yearly` | 1 year | $29.99 | none | `Real Quick Pro Yearly` (21) / `Unlimited AI food counts, billed yearly` (39) | `Real Quick Pro 年額` (17) / `AIの食事計算が無制限（毎年請求）` (17) |
 
 Limits: display name ≤ 30, description ≤ 45 — all measured. Mirrored in
 `app/RealQuick.storekit`. Review screenshot for both products:
@@ -144,11 +144,12 @@ by `capture.js`, which asserts the trial line and "You won't be charged
 today" before capturing).
 
 **Pricing reasoning (BLUEPRINT §4 deviation, written down):** every AI count
-has a real marginal cost, so the free tier is capped (3 per day, enforced by
-the gateway) instead of unlimited. It stays genuinely useful — three meals a
-day, plus unlimited typed common foods via the on-device table — and a new
-user never meets a locked gate before their first tap. Prices follow the house
-anchors ($4.99 / $29.99) with the standard 1-week trial; revisit once the
+has a real marginal cost, so there is no permanent free tier: the first 3
+days are free (up to 12 counts a day, enforced by the gateway per install),
+then every count needs Pro. A new user never meets a locked gate before
+their first tap, and sees how many free days are left on today's page. Prices follow the house
+anchors ($4.99 / $29.99). No store trial: the app's own first 3 days are the
+trial, and model time is paid from day one (Karol, 27 Oct 2026). Revisit once the
 per-count cost of the chosen model is measured (`server/eval.py`).
 
 ## App Review notes (paste into App Review Information ▸ Notes)
@@ -160,13 +161,13 @@ What the app does (all reachable without an account):
 1. Main screen: tap "Click to [camera] and track calories instantly". A live camera preview is next to the button (tap it to enlarge). The photo is analysed in the background and the calories/macros ring updates.
 2. Swipe left (or tap the small notes tab on the right edge): the day's food list — edit a portion, remove an entry, or type food ("2 eggs and toast" is resolved on-device instantly; anything else goes to the AI).
 3. Swipe up/down: previous days. Each weekday has its own colour and a soft 3D object; after 8 pm the app switches to a calm off-white night look (Settings ▸ "Night look after 8pm").
-4. Share button (top right): shares a card image of the day via the system share sheet.
+4. Share button (top right): live sharing — the app creates a link (hosted by our server) that shows today's totals and the history, updated while sharing is on; "Stop sharing" removes it. No photos leave the phone.
 5. Settings (cog, top right): daily goal with a built-in BMR calculator, estimate bias (lighter / as estimated / heavier), kcal/kJ, partner name for sharing, Pro status, Restore Purchases, Manage Subscription, privacy, terms, version.
 6. Widgets: Lock Screen "Snap" (circular) and "Today" (circular, rectangular, inline), Home Screen small/medium, and on iOS 18 a "Snap food" control for Control Center / the Lock Screen. Each opens the app and takes the photo automatically.
 
 No account or sign-in exists. Photos are sent to our own server only to be analysed by the AI model, and are not stored. The food diary stays on the device.
 
-Free tier: 3 AI counts per day (typed common foods are always free). The 4th AI count of the day shows a "Today's 3 free counts are used" row with an unlock button. Real Quick Pro (monthly/yearly, 1-week free trial) removes the limit.
+Free: the first 3 days after first launch, every feature, up to 12 counts a day. From day 4 the snap button and typed meals open the paywall. Real Quick Pro (monthly/yearly, no introductory trial) counts everything. A fresh install is on day 1, so every count works during review; the paywall is reachable from Settings ▸ Go unlimited.
 
 In the simulator there is no camera: the preview shows a sleeping mascot. Typing food in the food list (swipe left) exercises the same AI pipeline.
 

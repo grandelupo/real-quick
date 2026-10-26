@@ -1,4 +1,4 @@
-import {
+import { freeDaysLeft, TRIAL_DAYS,
   BIAS_MULTIPLIER,
   COLLAPSE_AFTER_SNAPS,
   addDays,
@@ -196,5 +196,16 @@ describe('validate', () => {
   test('caps item count', () => {
     const many = Array.from({ length: 40 }, (_, i) => ({ name: `i${i}`, kcal: 1 }));
     expect(sanitizeAnalysis({ items: many }).items).toHaveLength(12);
+  });
+});
+
+describe('free days', () => {
+  it('counts down from the first day and closes', () => {
+    expect(freeDaysLeft(undefined, '2026-10-26')).toBe(TRIAL_DAYS);
+    expect(freeDaysLeft('2026-10-26', '2026-10-26')).toBe(3);
+    expect(freeDaysLeft('2026-10-26', '2026-10-28')).toBe(1);
+    expect(freeDaysLeft('2026-10-26', '2026-10-29')).toBe(0);
+    expect(freeDaysLeft('2026-10-26', '2026-12-01')).toBe(0);
+    expect(freeDaysLeft('2026-10-30', '2026-10-26')).toBe(3); // clock went backwards: stay generous
   });
 });

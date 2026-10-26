@@ -61,3 +61,15 @@ marketing/site`).
 ```bash
 python3 -m unittest test_gateway -v   # 15 tests: quota, refunds, validation, JWS chain, wire codes, Claude request shape
 ```
+
+## Free days and live sharing
+
+- Every install may count for `TRIAL_DAYS` (3) local days from its first
+  `/v1/analyze`, up to `FREE_PER_DAY` a day; afterwards non-subscribers get
+  `trial_over` (402). First-seen days live in `installs.json` next to the
+  usage file, so a reinstall with a new install id gets a new window only if
+  it also has a new IP (`FREE_PER_IP`).
+- `POST /v1/share` stores a summary of the install's days (totals and entry
+  titles, never photos) under a random token and answers `{token, url}`;
+  `GET /s/<token>` renders it as a live page, `DELETE /v1/share` removes it.
+  Stored in `shares.json`. Caddy routes `/s/*` here (deploy/Caddyfile.snippet).

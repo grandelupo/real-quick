@@ -97,6 +97,19 @@ class LogicTests(unittest.TestCase):
         self.assertEqual(e.exception.code, "daily_limit")
         self.assertEqual(e.exception.status, 402)
 
+    def test_free_window_closes_after_trial_days(self):
+        inst = install()
+        self.call({"kind": "text", "text": "x"}, inst=inst)  # day 0 is recorded on first use
+        first = gateway.INSTALLS.data[inst]
+        old = (dt.datetime.strptime(first, "%Y-%m-%d") - dt.timedelta(days=gateway.TRIAL_DAYS)).strftime("%Y-%m-%d")
+        gateway.INSTALLS.data[inst] = old
+        with self.assertRaises(gateway.GatewayError) as e:
+            self.call({"kind": "text", "text": "x"}, inst=inst)
+        self.assertEqual((e.exception.code, e.exception.status), ("trial_over", 402))
+        # the day before the window closes still counts
+        gateway.INSTALLS.data[inst] = (dt.datetime.strptime(old, "%Y-%m-%d") + dt.timedelta(days=1)).strftime("%Y-%m-%d")
+        self.assertEqual(self.call({"kind": "text", "text": "x"}, inst=inst)[0], 200)
+
     def test_free_limit_per_ip_stops_reinstall_farming(self):
         for _ in range(gateway.FREE_PER_IP):
             self.call({"kind": "text", "text": "x"}, ip="9.9.9.9")
@@ -248,6 +261,34 @@ class HttpTests(unittest.TestCase):
             data = json.loads(r.read())
         self.assertTrue(data["ok"])
         self.assertTrue(data["key"])
+
+    def test_share_round_trip(self):
+        inst = install()
+        base = f"http://127.0.0.1:{self.port}"
+        today = dt.date.today().isoformat()
+        body = {"name": "Karol", "unit": "kcal", "days": {today: {"kcal": 1191, "goal": 2000, "protein": 72, "carbs": 125, "fat": 42,
+                "entries": [{"t": "08:05", "title": "Avocado <toast>", "kcal": 364}]}, "2026-10-01": {"kcal": 1800, "goal": 2000, "entries": []}, "junk": 1}}
+        req = urllib.request.Request(f"{base}/v1/share", data=json.dumps(body).encode(), headers={"Content-Type": "application/json", "X-Install-Id": inst})
+        with urllib.request.urlopen(req) as r:
+            out = json.loads(r.read())
+        self.assertTrue(out["url"].endswith("/s/" + out["token"]))
+        with urllib.request.urlopen(f"{base}/s/{out['token']}") as r:
+            page = r.read().decode()
+        self.assertIn("Karol’s days", page)
+        self.assertIn("Avocado <toast>", page)  # inside the JSON the page renders (escaped by its own script)
+        self.assertNotIn("</script><script>", page)
+        self.assertNotIn("\"install\"", page)
+        # a second push keeps the token
+        with urllib.request.urlopen(urllib.request.Request(f"{base}/v1/share", data=json.dumps(body).encode(), headers={"Content-Type": "application/json", "X-Install-Id": inst})) as r:
+            self.assertEqual(json.loads(r.read())["token"], out["token"])
+        with urllib.request.urlopen(f"{base}/v1/share/{out['token']}") as r:
+            data = json.loads(r.read())
+        self.assertNotIn("install", data)
+        self.assertNotIn("junk", data["days"])
+        urllib.request.urlopen(urllib.request.Request(f"{base}/v1/share", method="DELETE", headers={"X-Install-Id": inst}))
+        with self.assertRaises(urllib.error.HTTPError) as e:
+            urllib.request.urlopen(f"{base}/s/{out['token']}")
+        self.assertEqual(e.exception.code, 404)
 
     def test_error_shape(self):
         req = urllib.request.Request(

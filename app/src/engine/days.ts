@@ -73,3 +73,15 @@ export function isButtonCollapsed(totalSnaps: number): boolean {
 
 /** Free snaps per local day; Pro is unlimited (the gateway enforces both). */
 export const FREE_AI_PER_DAY = 3;
+
+/** The free window: this many local days from the first launch, then Pro. */
+export const TRIAL_DAYS = 3;
+
+/** Free days left including today: TRIAL_DAYS on the first day, 0 once it is over. */
+export function freeDaysLeft(firstDay: string | undefined, today: string): number {
+  if (!firstDay) return TRIAL_DAYS;
+  const a = Date.UTC(Number(firstDay.slice(0, 4)), Number(firstDay.slice(5, 7)) - 1, Number(firstDay.slice(8, 10)));
+  const b = Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 1, Number(today.slice(8, 10)));
+  const index = Math.floor((b - a) / 86_400_000);
+  return Math.max(0, TRIAL_DAYS - Math.max(0, index));
+}

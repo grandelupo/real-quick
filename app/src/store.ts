@@ -21,8 +21,10 @@ export interface State {
   /** Store receipt the gateway verifies (iOS JWS / Play purchase token). */
   proToken?: string;
   installId: string;
-  /** First day the app was used, so the day pager knows how far back to go. */
+  /** First day the app was used: the day pager's reach and the start of the free days. */
   firstDay?: string;
+  /** Live share, while on: the token and public link the gateway gave us. */
+  share?: { token: string; url: string };
 }
 
 const KEY = 'realquick.v1';
