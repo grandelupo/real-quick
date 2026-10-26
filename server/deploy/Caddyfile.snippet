@@ -8,10 +8,10 @@ realquick.lab.karolkrakowski.pl {
 		output file /var/log/caddy/realquick.log
 	}
 	handle /v1/* {
-		reverse_proxy 127.0.0.1:8096
+		reverse_proxy 127.0.0.1:8099
 	}
 	handle /healthz {
-		reverse_proxy 127.0.0.1:8096
+		reverse_proxy 127.0.0.1:8099
 	}
 	handle {
 		root * /srv/sites/realquick

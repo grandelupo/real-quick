@@ -28,7 +28,7 @@ Where: your Mac, in the workspace that has `app-builder/` with its `.env`
 Prereq: none
 
 1. `cd real-quick/server && ./deploy.sh --key` — installs the gateway on the
-   VPS (port 8096, checks the port is free first), writes
+   VPS (port 8099, checks the port is free first), writes
    `/etc/realquick/gateway.env` with `ANTHROPIC_API_KEY` from
    `app-builder/.env`, appends the Caddy block, pre-creates its log file.
    Prints `/healthz`; expect `"key": true, "root": true`.

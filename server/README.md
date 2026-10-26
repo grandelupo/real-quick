@@ -52,7 +52,7 @@ then set `MODEL=` in `/etc/realquick/gateway.env` and restart — no app release
 ```
 
 Serves `https://realquick.lab.karolkrakowski.pl` (wildcard DNS already points
-at the VPS) on 127.0.0.1:8096 behind Caddy; the product site is served from
+at the VPS) on 127.0.0.1:8099 behind Caddy; the product site is served from
 the same host (`/srv/sites/realquick`, `app-builder/deploy-site.py realquick
 marketing/site`).
 

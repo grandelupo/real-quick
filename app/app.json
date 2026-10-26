@@ -33,7 +33,8 @@
         "com.apple.security.application-groups": [
           "group.com.latovi.realquick.shared"
         ]
-      }
+      },
+      "appleTeamId": "H85T7F9AS6"
     },
     "android": {
       "package": "com.latovi.realquick",

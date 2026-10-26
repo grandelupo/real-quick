@@ -56,8 +56,8 @@ Target audience: 13+ (not designed for children).
 
 ## Graphics
 
-- Icon 512×512: render `marketing/brand/icon.svg` at 512 (same artwork as iOS).
-- Feature graphic 1024×500: prompt in `HANDOFF.md` → *Image prompts*, or crop
-  the website hero.
+- Icon 512×512: `out/graphics/icon-512.png` (the iOS icon, resized).
+- Feature graphic 1024×500: `out/graphics/feature-1024x500.png`, made by
+  `feature.py` from the Gemini art in `marketing/brand-art/raw/`.
 - Phone screenshots: `marketing/play/out/en-US/*.png` and `out/ja/*.png`, 1080×2160
   (Play caps the ratio at 2:1) — `python3 marketing/appstore/build.py --play`.

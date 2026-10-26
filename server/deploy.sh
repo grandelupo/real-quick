@@ -28,7 +28,7 @@ HOST=$(envval "$AB/.env" VPS_SERVER_IPV4); USER_=$(envval "$AB/.env" VPS_SERVER_
 [ -n "$HOST" ] || { echo "VPS_SERVER_IPV4 missing in $AB/.env"; exit 1; }
 SSH="ssh -i ${KEY/#\~/$HOME} -o StrictHostKeyChecking=accept-new ${USER_:-root}@$HOST"
 
-$SSH 'ss -tlnp | grep -q ":8096 " && ! systemctl is-active --quiet realquick-gateway && { echo "port 8096 taken — pick another (BACKEND.md port registry)"; exit 1; } || true'
+$SSH 'ss -tlnp | grep -q ":8099 " && ! systemctl is-active --quiet realquick-gateway && { echo "port 8099 taken — pick another (BACKEND.md port registry)"; exit 1; } || true'
 $SSH 'id realquick >/dev/null 2>&1 || useradd --system --home /opt/realquick --shell /usr/sbin/nologin realquick
       mkdir -p /opt/realquick /var/lib/realquick /etc/realquick /srv/sites/realquick
       chown realquick:realquick /var/lib/realquick

@@ -43,7 +43,7 @@ log = logging.getLogger("realquick")
 # ---------------------------------------------------------------- config ---
 
 HERE = Path(__file__).resolve().parent
-PORT = int(os.environ.get("PORT", "8096"))
+PORT = int(os.environ.get("PORT", "8099"))
 PROVIDER = os.environ.get("PROVIDER", "anthropic")  # anthropic | perplexity | fake
 MODEL = os.environ.get("MODEL", "claude-opus-5-5")
 EFFORT = os.environ.get("EFFORT", "low")
