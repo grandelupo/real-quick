@@ -23,8 +23,9 @@ see `marketing/brand.md` and `CLAUDE.md`).
   crashed on launch — expo-gl lacks two WebGL methods three calls), 4 (no
   crash, but no forest and no day swipe), 5 (forest draws, swipe and camera
   zoom fixed; forest only two thirds wide, roll dived into the ground),
-  6 (full-width forest, roll about the planet's centre) uploaded with
-  `xcodebuild archive` + `-exportArchive`
+  6 (full-width forest, roll about the planet's centre), 7 (no flash on the
+  day change, short/quick swipes go through, trees above the chips)
+  uploaded with `xcodebuild archive` + `-exportArchive`
   (`app/ios/build/ship/export.plist`); the archive signs through the Xcode
   account, team H85T7F9AS6, the upload uses the ASC API key (see
   `CLAUDE.md`). Both targets carry the App Group.
@@ -36,7 +37,7 @@ see `marketing/brand.md` and `CLAUDE.md`).
    then check: a typed meal through `/v1/analyze` returns items.
 2. **App Privacy** answers in App Store Connect — not in the API. Fill from
    `marketing/appstore/app-privacy.md`.
-3. Build 6 is attached to 1.0; submit with
+3. Build 7 is attached to 1.0; submit with
    `app-builder/.venv/bin/python app-builder/asc.py submit com.latovi.realquick`.
 
 ## Then
