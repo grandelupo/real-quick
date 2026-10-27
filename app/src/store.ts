@@ -23,6 +23,8 @@ export interface State {
   firstDay?: string;
   /** Live share, while on: the token and public link the gateway gave us. */
   share?: { token: string; url: string };
+  /** The last day the mascot intro played; it plays once per day. */
+  introDay?: string;
 }
 
 const KEY = 'realquick.v1';

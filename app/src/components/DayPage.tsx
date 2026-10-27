@@ -4,6 +4,7 @@ import Animated, { FadeIn, FadeOut, useAnimatedProps, useSharedValue, withTiming
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { DayArt } from '../art/DayArt';
 import { Hero } from '../art/Hero';
+import { MascotIntro } from './MascotIntro';
 import { dayTotals, toUnit, weekdayIndex, type Entry, type Settings } from '../engine';
 import { n, t } from '../i18n';
 import { DAYS, INK_HAIR, INK_SOFT, MACRO, SHADOW, SHADOW_SM, SURFACE } from '../theme';
@@ -81,9 +82,13 @@ export interface DayPageProps {
   hint?: { text: string; dir: 'up' | 'left' };
   /** A quiet line under the ring, e.g. how many free days are left. */
   note?: string;
+  /** First open of the day: the mascot sits in the disc and gets eaten before the ring appears. */
+  intro?: boolean;
+  onIntroDone?(): void;
 }
 
 export const DayPage = React.memo(function DayPage(p: DayPageProps) {
+  const [intro, setIntro] = useState(!!p.intro);
   const wd = weekdayIndex(p.day);
   const pal = DAYS[wd];
   const totals = dayTotals(p.entries);
@@ -109,15 +114,28 @@ export const DayPage = React.memo(function DayPage(p: DayPageProps) {
         </T>
         <View style={styles.middle}>
           <View style={[styles.disc, SHADOW, { width: ringSize, height: ringSize, borderRadius: ringSize / 2, backgroundColor: p.night ? SURFACE : 'rgba(255,255,255,0.92)' }]}>
-            <Ring id={`r${wd}`} size={ringSize} progress={goal > 0 ? kcal / goal : 0} color={over ? MACRO.protein : pal.ring} colorSoft={over ? '#FFB3A8' : pal.ringSoft} track={INK_HAIR} />
-            <View style={[StyleSheet.absoluteFill, styles.center]}>
-              <T v="hero" style={{ fontSize: ringSize * 0.23, lineHeight: ringSize * 0.27 }} accessibilityLabel={`${n(kcal)} ${p.settings.unit}`}>
-                {n(shown)}
-              </T>
-              <T v="small" color={INK_SOFT}>
-                {t('of')} {n(goal)} {p.settings.unit}
-              </T>
-            </View>
+            {intro ? (
+              <MascotIntro
+                size={ringSize * 0.84}
+                active={p.active}
+                onDone={() => {
+                  setIntro(false);
+                  p.onIntroDone?.();
+                }}
+              />
+            ) : (
+              <>
+                <Ring id={`r${wd}`} size={ringSize} progress={goal > 0 ? kcal / goal : 0} color={over ? MACRO.protein : pal.ring} colorSoft={over ? '#FFB3A8' : pal.ringSoft} track={INK_HAIR} />
+                <Animated.View entering={p.intro ? FadeIn.duration(500) : undefined} style={[StyleSheet.absoluteFill, styles.center]}>
+                  <T v="hero" style={{ fontSize: ringSize * 0.23, lineHeight: ringSize * 0.27 }} accessibilityLabel={`${n(kcal)} ${p.settings.unit}`}>
+                    {n(shown)}
+                  </T>
+                  <T v="small" color={INK_SOFT}>
+                    {t('of')} {n(goal)} {p.settings.unit}
+                  </T>
+                </Animated.View>
+              </>
+            )}
           </View>
           <View style={[styles.pill, SHADOW_SM, { backgroundColor: p.night ? SURFACE : 'rgba(255,255,255,0.86)' }]}>
             <T v="label">{diff >= 0 ? t('left', { n: n(diff) }) : t('over', { n: n(-diff) })}</T>

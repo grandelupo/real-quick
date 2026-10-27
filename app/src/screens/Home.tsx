@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { addDays, dayKey, dayPages, dayTotals, freeDaysLeft, isNight, macroTargets, msUntilLookChange, weekdayIndex, type Entry } from '../engine';
 import { dayLabel, t } from '../i18n';
-import { entriesFor, markSeen, useStore } from '../store';
+import { entriesFor, markSeen, setState, useStore } from '../store';
 import { DAYS, INK, NIGHT_BG, SHADOW_SM, SURFACE } from '../theme';
 import { DayPage } from '../components/DayPage';
 import { MacroStrip } from '../components/MacroStrip';
@@ -61,8 +61,11 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   const firstDay = useStore((s) => s.firstDay);
   const seen = useStore((s) => s.seen);
   const isPro = useStore((s) => s.isPro);
+  const introDay = useStore((s) => s.introDay);
 
   const today = dayKey(now);
+  // The mascot plays once a day, on the first page of the day.
+  const introDone = useCallback(() => setState({ introDay: dayKey(new Date()) }), []);
   const yesterday = addDays(today, -1);
   const night = settings.nightLook && isNight(now);
   const pages = useMemo(() => dayPages(today, firstDay), [today, firstDay]);
@@ -314,6 +317,8 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
       bottomReserve={bottomReserve}
       hint={hintFor(day)}
       note={day === today ? trialNote : undefined}
+      intro={day === today && introDay !== today}
+      onIntroDone={introDone}
     />
   );
 
