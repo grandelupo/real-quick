@@ -110,7 +110,7 @@ async function page(browser, locale, hour) {
       await p.getByText('Go unlimited').click();
       await p.waitForTimeout(1600);
       const text = await p.textContent('body');
-      if (!/You won't be charged today/.test(text) || !/1 week free, then \$29\.99\/year/.test(text)) throw new Error('paywall copy missing');
+      if (!/\$29\.99 \/ year/.test(text) || !/Renews automatically/.test(text)) throw new Error('paywall copy missing');
       await p.screenshot({ path: path.join(__dirname, 'subscription-review.png') });
       await p.close();
     }
