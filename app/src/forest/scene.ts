@@ -114,12 +114,22 @@ function hills(x: number, z: number) {
   return 0.16 * Math.sin(x * 0.55 + 1.3) * Math.cos(z * 0.45) + 0.09 * Math.sin(x * 1.3 + z * 0.9);
 }
 
-/** A point on the planet for flat coordinates (x across, z towards the camera). */
-function surface(x: number, z: number, lift = 0): THREE.Vector3 {
+const X_AXIS = new THREE.Vector3(1, 0, 0);
+
+/**
+ * A point on the planet for flat coordinates (x across, z towards the
+ * camera), measured from the planet's centre. The hills are baked into the
+ * sphere, so `turn` says how far (about x) this point's frame is rotated
+ * from the ground mesh, and the height is read where it really lands.
+ */
+function surface(x: number, z: number, lift = 0, turn = 0): THREE.Vector3 {
   const phi = x / R;
   const theta = z / R;
-  const r = R + hills(x, z) + lift;
-  return new THREE.Vector3(r * Math.sin(phi) * Math.cos(theta), r * Math.cos(phi) * Math.cos(theta) - R, r * Math.sin(theta));
+  const dir = new THREE.Vector3(Math.sin(phi) * Math.cos(theta), Math.cos(phi) * Math.cos(theta), Math.sin(theta));
+  const onGround = dir.clone().applyAxisAngle(X_AXIS, turn);
+  const lat = Math.asin(THREE.MathUtils.clamp(onGround.y, -1, 1));
+  const lon = Math.atan2(onGround.x, onGround.z);
+  return dir.multiplyScalar(R + hills(lon * R * 0.5, lat * R * 0.5) + lift);
 }
 
 export class ForestScene {
@@ -178,7 +188,7 @@ export class ForestScene {
     // expo-gl's WebGL2 context is also an `instanceof WebGLRenderingContext`
     // (it extends it, as the spec says), and three ≥ r163 refuses any context
     // that passes that test. Hide the global for the one check three makes.
-    if (!ctx.supportsWebGL2) throw new Error('forest needs WebGL2');
+    if (ctx.supportsWebGL2 === false) throw new Error('forest needs WebGL2'); // expo-gl only; a browser context has no such flag
     const g = globalThis as unknown as Record<string, unknown>;
     const webgl1 = g.WebGLRenderingContext;
     g.WebGLRenderingContext = undefined;
@@ -187,8 +197,9 @@ export class ForestScene {
     } finally {
       g.WebGLRenderingContext = webgl1;
     }
-    // 2× is plenty for a soft low-poly scene and a third of the pixels of 3×
-    this.renderer.setPixelRatio(Math.min(2, pixelRatio));
+    // the full ratio: expo-gl's buffer is view × scale, and three's viewport
+    // has to cover all of it (a lower ratio drew into the bottom-left corner)
+    this.renderer.setPixelRatio(pixelRatio);
     this.renderer.setSize(width, height, false);
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.shadowMap.enabled = true;
@@ -258,8 +269,10 @@ export class ForestScene {
         .replace('#include <common>', '#include <common>\nvarying float vFade;')
         .replace('#include <dithering_fragment>', '#include <dithering_fragment>\ngl_FragColor.a *= vFade;');
     };
+    // the planet group sits at the planet's centre, so rolling it (and placing a
+    // day's forest at an angle) turns about the centre, not the ground under the camera
+    this.planet.position.y = -R;
     this.ground = new THREE.Mesh(geo, this.groundMat);
-    this.ground.position.y = -R;
     this.ground.receiveShadow = true;
     this.planet.add(this.ground);
 
@@ -421,20 +434,21 @@ export class ForestScene {
     const set: PlantSet = { group: new THREE.Group(), biome, growth: 0, over: 0 };
     set.group.rotation.x = offset;
     this.planet.add(set.group);
-    this.buildPlants(set, seed);
+    this.buildPlants(set, seed, offset);
     return set;
   }
 
-  private buildPlants(set: PlantSet, seed: number) {
+  private buildPlants(set: PlantSet, seed: number, offset: number) {
     const biome = set.biome;
     const pal = PALETTES[biome];
     const r = rand(1234 + seed * 97 + biome.length * 31);
     const up = new THREE.Vector3(0, 1, 0);
     const add = (body: THREE.Group, kind: Plant['kind'], threshold: number, sway: number, mats: THREE.MeshStandardMaterial[], x: number, z: number) => {
       const group = new THREE.Group();
-      const at = surface(x, z, -0.02);
+      // this set sits `offset` around the planet; the ground mesh has turned by its own rotation
+      const at = surface(x, z, -0.02, offset - this.ground.rotation.x);
       group.position.copy(at);
-      const normal = at.clone().add(new THREE.Vector3(0, R, 0)).normalize();
+      const normal = at.clone().normalize();
       group.quaternion.setFromUnitVectors(up, normal);
       body.rotation.y = r() * Math.PI * 2;
       group.add(body);
