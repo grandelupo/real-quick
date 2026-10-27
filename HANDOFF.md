@@ -30,7 +30,7 @@ see `marketing/brand.md` and `CLAUDE.md`).
   forest), 11 (trees with real branches and leaves, swipe up turns the
   globe away, swipes no longer misread their direction), 12 (plain
   paywall with a coupon field, month view from the date, rubber band at
-  the first and last day), 13 (the forest fades in once drawn) uploaded with `xcodebuild archive` + `-exportArchive`
+  the first and last day), 13 (the forest fades in once drawn), 14 (sheets scroll only when they must, a moon at night) uploaded with `xcodebuild archive` + `-exportArchive`
   (`app/ios/build/ship/export.plist`); the archive signs through the Xcode
   account, team H85T7F9AS6, the upload uses the ASC API key (see
   `CLAUDE.md`). Both targets carry the App Group.
@@ -42,7 +42,7 @@ see `marketing/brand.md` and `CLAUDE.md`).
    then check: a typed meal through `/v1/analyze` returns items.
 2. **App Privacy** answers in App Store Connect — not in the API. Fill from
    `marketing/appstore/app-privacy.md`.
-3. Build 13 is attached to 1.0; submit with
+3. Build 14 is attached to 1.0; submit with
    `app-builder/.venv/bin/python app-builder/asc.py submit com.latovi.realquick`.
 
 ## Then

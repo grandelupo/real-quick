@@ -1024,7 +1024,13 @@ export class ForestScene {
     this.sun.color.lerp(new THREE.Color(this.night ? 0xb9c6ff : 0xffe8bf), Math.min(1, dt * 3));
     this.hemi.intensity += ((this.night ? 0.4 : 0.7) - this.hemi.intensity) * Math.min(1, dt * 3);
     this.hemi.color.lerp(new THREE.Color(this.night ? 0x9aa8ff : 0xfff4dc), Math.min(1, dt * 3));
-    (this.sunSprite.material as THREE.SpriteMaterial).opacity += ((this.night ? 0 : 0.7) - (this.sunSprite.material as THREE.SpriteMaterial).opacity) * Math.min(1, dt * 3);
+    // by night the sun's sprite becomes a small pale moon
+    const sunMat = this.sunSprite.material as THREE.SpriteMaterial;
+    sunMat.opacity += ((this.night ? 0.42 : 0.7) - sunMat.opacity) * Math.min(1, dt * 3);
+    sunMat.color.lerp(new THREE.Color(this.night ? 0xe3e9ff : 0xfff3c8), Math.min(1, dt * 3));
+    const sunScale = this.night ? 1.9 : 3.4;
+    this.sunSprite.scale.x += (sunScale - this.sunSprite.scale.x) * Math.min(1, dt * 3);
+    this.sunSprite.scale.y = this.sunSprite.scale.x;
     this.rays.forEach((ray, i) => {
       const m = ray.material as THREE.MeshBasicMaterial;
       m.opacity = (1 - nightK) * (0.03 + 0.035 * (0.5 + 0.5 * Math.sin(t * 0.5 + i * 1.7)));
