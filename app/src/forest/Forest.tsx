@@ -2,8 +2,9 @@ import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react
 import { PixelRatio, Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { GLView, type ExpoWebGLRenderingContext } from 'expo-gl';
 import { DeviceMotion } from 'expo-sensors';
-import type { SharedValue } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 import { ForestScene } from './scene';
+import { EASE_OUT } from '../ui/motion';
 
 // The living forest band at the bottom of the home screen. One GL scene for
 // the whole app: the day's biome, how far it has grown today, whether it has
@@ -45,6 +46,10 @@ export const Forest = forwardRef<ForestHandle, Props>(function Forest({ width, h
   // behind the view never gets presented. So every few frames (and every
   // frame while it is behind) we wait for the queue with a blocking call.
   const pace = useRef({ slow: false, n: 0 });
+  // The view stays invisible until the first frame has really been drawn
+  // (shaders compiled, GL thread caught up), then fades in instead of popping.
+  const fade = useSharedValue(0);
+  const fadeStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
   const loop = (now: number) => {
     if (!running.current) return;
     try {
@@ -52,6 +57,10 @@ export const Forest = forwardRef<ForestHandle, Props>(function Forest({ width, h
       scene.current?.frame(now);
       const p = pace.current;
       p.n++;
+      if (p.n === 1) {
+        scene.current?.drain();
+        fade.value = withTiming(1, { duration: 800, easing: EASE_OUT });
+      }
       if (p.slow || p.n % 12 === 0) {
         const t0 = Date.now();
         scene.current?.drain();
@@ -151,7 +160,7 @@ export const Forest = forwardRef<ForestHandle, Props>(function Forest({ width, h
   );
 
   return (
-    <View pointerEvents="none" style={[styles.wrap, { width, height }, style]}>
+    <Animated.View pointerEvents="none" style={[styles.wrap, { width, height }, style, fadeStyle]}>
       <GLView
         style={{ width, height }}
         msaaSamples={4}
@@ -168,7 +177,7 @@ export const Forest = forwardRef<ForestHandle, Props>(function Forest({ width, h
           }
         }}
       />
-    </View>
+    </Animated.View>
   );
 });
 

@@ -15,7 +15,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.latovi.realquick",
-      "buildNumber": "12",
+      "buildNumber": "13",
       "supportsTablet": false,
       "config": {
         "usesNonExemptEncryption": false
