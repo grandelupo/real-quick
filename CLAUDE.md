@@ -67,7 +67,13 @@ Info.plist (prebuild rewrites them; between prebuilds use PlistBuddy) — passin
 `CURRENT_PROJECT_VERSION` to xcodebuild alone is not enough, App Store Connect
 checks the plist. Then archive + `-exportArchive` with
 `ios/build/ship/export.plist`, wait for the build to be VALID, and
-`asc.py version attach-build com.latovi.realquick --build N`.
+`asc.py version attach-build com.latovi.realquick --build N`. The upload
+step authenticates with the App Store Connect API key, not the Xcode
+account (that session lapses and fails with "Failed to Use Accounts"):
+pass `-allowProvisioningUpdates -authenticationKeyPath <ASC_KEY_PATH>
+-authenticationKeyID <ASC_KEY_ID> -authenticationKeyIssuerID <ASC_ISSUER_ID>`
+from `app-builder/.env` to `-exportArchive`. The archive itself still signs
+through the Xcode account.
 
 Simulators: use the single existing iOS simulator ("Upbell Capture"); never
 create simulators or Android emulators (see app-builder/CLAUDE.md). Android is
@@ -91,6 +97,14 @@ verified on a real device or via EAS.
 - The forest is one GL scene owned by Home (`src/forest/Forest.tsx`); day
   pages only draw the gradient, ring and hero. Keep it procedural (no model
   files) and keep the frame cheap: ~25 trees, ~50 small plants, 220 points.
+  Two expo-gl facts the code works around, do not undo them: three ≥ r163
+  refuses expo-gl's context because it is an `instanceof
+  WebGLRenderingContext` (scene.ts hides the global for the constructor), and
+  expo-gl runs GL on its own thread with no back-pressure — if JS queues
+  frames faster than that thread draws them the view is never presented, so
+  the loop blocks on `drain()` (a `gl.getError()`) every few frames and every
+  frame while behind. The iOS simulator draws this scene at ~1 fps and takes
+  ~15 s to compile the shaders; judge performance on a device.
 - Look and motion rules live in `marketing/brand.md`: no outlines, no emoji,
   no springs or loops — every animation is a short ease-out from
   `src/ui/motion.ts`; illustration is only the clay set in `app/assets/art/`

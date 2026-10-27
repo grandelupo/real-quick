@@ -102,8 +102,11 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   // forward, the next forest comes over the far horizon).
   const roll = useSharedValue(0);
   const [target, setTarget] = useState<{ index: number; dir: 1 | -1 } | null>(null);
-  const targetRef = useRef(target);
-  targetRef.current = target;
+  // The gesture worklets read the target from a shared value: a ref read
+  // inside a worklet is a frozen copy, so the roll would never start.
+  const rollTarget = useSharedValue<{ index: number; dir: 1 | -1 } | null>(null);
+  /** Direction a beginRoll() has been asked for and not answered yet (0 = none). */
+  const pendingDir = useSharedValue<0 | 1 | -1>(0);
 
   const dayState = useCallback(
     (day: string) => {
@@ -116,30 +119,35 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
 
   const beginRoll = useCallback(
     (dir: 1 | -1) => {
+      pendingDir.value = 0;
+      if (rollTarget.value) return;
       const next = index + dir;
       if (next < 0 || next >= pages.length) return;
       const day = pages[next];
       const st = dayState(day);
       forest.current?.beginRoll(dir, weekdayIndex(day), st.growth, st.over);
+      rollTarget.value = { index: next, dir };
       setTarget({ index: next, dir });
     },
-    [index, pages, dayState],
+    [index, pages, dayState, rollTarget, pendingDir],
   );
   const finishRoll = useCallback(
     (commit: boolean) => {
-      const tg = targetRef.current;
+      const tg = rollTarget.value;
       if (commit && tg) {
         forest.current?.commitRoll();
         setIndex(tg.index);
         haptic('light');
         markSeen('scroll');
-      } else {
+      } else if (tg) {
         forest.current?.cancelRoll();
       }
       roll.value = 0;
+      rollTarget.value = null;
+      pendingDir.value = 0;
       setTarget(null);
     },
-    [roll],
+    [roll, rollTarget, pendingDir],
   );
 
   const dayPan = Gesture.Pan()
@@ -147,16 +155,24 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
     .failOffsetX([-14, 14])
     .onChange((e) => {
       const dir: 1 | -1 = e.translationY < 0 ? 1 : -1;
-      const tg = targetRef.current;
-      if (!tg || tg.dir !== dir) {
-        runOnJS(beginRoll)(dir);
+      const tg = rollTarget.value;
+      if (!tg) {
+        // ask the JS side for the day in that direction, once
+        if (pendingDir.value !== dir) {
+          pendingDir.value = dir;
+          runOnJS(beginRoll)(dir);
+        }
         return;
       }
-      roll.value = Math.min(1, Math.abs(e.translationY) / ROLL_DISTANCE);
+      // a finger that comes back past the start just holds the roll at 0
+      roll.value = tg.dir === dir ? Math.min(1, Math.abs(e.translationY) / ROLL_DISTANCE) : 0;
     })
     .onEnd((e) => {
-      const tg = targetRef.current;
-      if (!tg) return;
+      const tg = rollTarget.value;
+      if (!tg) {
+        pendingDir.value = 0;
+        return;
+      }
       const goes = roll.value > 0.35 || (tg.dir === 1 ? e.velocityY < -600 : e.velocityY > 600);
       roll.value = withTiming(goes ? 1 : 0, { duration: goes ? 420 : 260, easing: EASE_OUT }, (done) => {
         if (done) runOnJS(finishRoll)(goes);

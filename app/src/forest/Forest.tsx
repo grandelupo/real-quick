@@ -40,11 +40,23 @@ export const Forest = forwardRef<ForestHandle, Props>(function Forest({ width, h
   const rest = useRef<{ roll: number; pitch: number } | null>(null);
   const rolling = useRef(false);
 
+  // expo-gl queues GL calls and runs them on its own thread; nothing stops
+  // JS from queuing frames faster than that thread draws them, and once it is
+  // behind the view never gets presented. So every few frames (and every
+  // frame while it is behind) we wait for the queue with a blocking call.
+  const pace = useRef({ slow: false, n: 0 });
   const loop = (now: number) => {
     if (!running.current) return;
     try {
       if (rolling.current) scene.current?.setRoll(roll.value);
       scene.current?.frame(now);
+      const p = pace.current;
+      p.n++;
+      if (p.slow || p.n % 12 === 0) {
+        const t0 = Date.now();
+        scene.current?.drain();
+        p.slow = Date.now() - t0 > 24;
+      }
     } catch (e) {
       // a broken frame stops the forest, never the app
       console.warn('forest stopped', e);

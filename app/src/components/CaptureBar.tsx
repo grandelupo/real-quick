@@ -86,6 +86,13 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
     height: interpolate(k.value, [0, 1], [small.h, large.h]),
     borderRadius: interpolate(k.value, [0, 1], [small.r, large.r]),
   }));
+  // The clip inside the box gets the size only: an animated left/top would
+  // win over the static zero and carry the clip off the box.
+  const clipStyle = useAnimatedStyle(() => ({
+    width: interpolate(k.value, [0, 1], [small.w, large.w]),
+    height: interpolate(k.value, [0, 1], [small.h, large.h]),
+    borderRadius: interpolate(k.value, [0, 1], [small.r, large.r]),
+  }));
   // The camera view itself is never resized (native preview layers lag behind
   // layout animation): it stays at the big size and is scaled and centred
   // inside the animated clip, so it tracks the box frame for frame and
@@ -241,7 +248,7 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
 
       {/* the one camera: small next to the button, or big when tapped */}
       <Animated.View style={[styles.preview, SHADOW, previewStyle]}>
-        <Animated.View style={[styles.previewClip, previewStyle, { left: 0, top: 0 }]}>
+        <Animated.View style={[styles.previewClip, clipStyle]}>
           <Animated.View style={[styles.camBox, { width: large.w, height: large.h }, camStyle]}>
             {granted ? (
               <CameraView
@@ -313,7 +320,7 @@ const styles = StyleSheet.create({
   label: { fontFamily: FONT.displayMedium, fontSize: 16, lineHeight: 21, textAlign: 'center' },
   inlineIcon: { marginTop: -2 },
   preview: { position: 'absolute' },
-  previewClip: { position: 'absolute', overflow: 'hidden', backgroundColor: INK },
+  previewClip: { position: 'absolute', left: 0, top: 0, overflow: 'hidden', backgroundColor: INK },
   camBox: { position: 'absolute', left: 0, top: 0 },
   previewEdge: { ...ABS, borderRadius: 20, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.7)' },
   noCam: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFE9EF' },

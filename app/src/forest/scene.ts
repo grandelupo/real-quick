@@ -175,12 +175,24 @@ export class ForestScene {
       getContext: () => gl,
     } as unknown as HTMLCanvasElement;
     if (!ctx.canvas) ctx.canvas = canvas;
-    this.renderer = new THREE.WebGLRenderer({ canvas, context: gl as unknown as WebGL2RenderingContext, alpha: true, antialias: true, premultipliedAlpha: true });
-    this.renderer.setPixelRatio(pixelRatio);
+    // expo-gl's WebGL2 context is also an `instanceof WebGLRenderingContext`
+    // (it extends it, as the spec says), and three ≥ r163 refuses any context
+    // that passes that test. Hide the global for the one check three makes.
+    if (!ctx.supportsWebGL2) throw new Error('forest needs WebGL2');
+    const g = globalThis as unknown as Record<string, unknown>;
+    const webgl1 = g.WebGLRenderingContext;
+    g.WebGLRenderingContext = undefined;
+    try {
+      this.renderer = new THREE.WebGLRenderer({ canvas, context: gl as unknown as WebGL2RenderingContext, alpha: true, antialias: true, premultipliedAlpha: true });
+    } finally {
+      g.WebGLRenderingContext = webgl1;
+    }
+    // 2× is plenty for a soft low-poly scene and a third of the pixels of 3×
+    this.renderer.setPixelRatio(Math.min(2, pixelRatio));
     this.renderer.setSize(width, height, false);
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 0.98;
 
@@ -731,6 +743,11 @@ export class ForestScene {
 
     this.renderer.render(this.scene, this.camera);
     this.gl.endFrameEXP();
+  }
+
+  /** Blocks until the GL thread has drawn everything queued so far. */
+  drain() {
+    this.gl.getError();
   }
 
   dispose() {
