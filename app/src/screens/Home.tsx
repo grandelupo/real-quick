@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Linking, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { FadeIn, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -48,6 +48,9 @@ function snapIntent(url: string | null): { fromWidget: boolean } | null {
 
 /** How far a swipe has to travel to roll one day. */
 const ROLL_DISTANCE = 260;
+/** Past this share of the way (or faster than FLICK pt/s) a released swipe goes through. */
+const COMMIT_AT = 0.25;
+const FLICK = 400;
 
 export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   const { width, height } = useWindowDimensions();
@@ -107,6 +110,11 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   const rollTarget = useSharedValue<{ index: number; dir: 1 | -1 } | null>(null);
   /** Direction a beginRoll() has been asked for and not answered yet (0 = none). */
   const pendingDir = useSharedValue<0 | 1 | -1>(0);
+  /** Velocity of a swipe that ended before its beginRoll() landed (a quick flick). */
+  const flick = useSharedValue(0);
+  // After a commit the new day is already `index` while `target` still points
+  // at it: that one render shows the new page plainly, then the roll resets.
+  const settling = target !== null && target.index === index;
 
   const dayState = useCallback(
     (day: string) => {
@@ -120,6 +128,8 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   const beginRoll = useCallback(
     (dir: 1 | -1) => {
       pendingDir.value = 0;
+      const v = flick.value;
+      flick.value = 0;
       if (rollTarget.value) return;
       const next = index + dir;
       if (next < 0 || next >= pages.length) return;
@@ -128,20 +138,29 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
       forest.current?.beginRoll(dir, weekdayIndex(day), st.growth, st.over);
       rollTarget.value = { index: next, dir };
       setTarget({ index: next, dir });
+      // the finger is already gone: a flick in this direction goes through, anything else backs out
+      if (v !== 0) {
+        const goes = dir === 1 ? v < -FLICK : v > FLICK;
+        roll.value = withTiming(goes ? 1 : 0, { duration: goes ? 420 : 260, easing: EASE_OUT }, (done) => {
+          if (done) runOnJS(finishRoll)(goes);
+        });
+      }
     },
-    [index, pages, dayState, rollTarget, pendingDir],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [index, pages, dayState, rollTarget, pendingDir, flick, roll],
   );
   const finishRoll = useCallback(
     (commit: boolean) => {
       const tg = rollTarget.value;
       if (commit && tg) {
+        // the new day takes over at full opacity first; the roll resets a frame later (effect below)
         forest.current?.commitRoll();
         setIndex(tg.index);
         haptic('light');
         markSeen('scroll');
-      } else if (tg) {
-        forest.current?.cancelRoll();
+        return;
       }
+      if (tg) forest.current?.cancelRoll();
       roll.value = 0;
       rollTarget.value = null;
       pendingDir.value = 0;
@@ -149,6 +168,15 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
     },
     [roll, rollTarget, pendingDir],
   );
+  useLayoutEffect(() => {
+    if (!settling) return;
+    roll.value = 0;
+    rollTarget.value = null;
+    pendingDir.value = 0;
+    // one frame later, so the reset has reached the UI thread before the styles switch back
+    const id = requestAnimationFrame(() => setTarget(null));
+    return () => cancelAnimationFrame(id);
+  }, [settling, roll, rollTarget, pendingDir]);
 
   const dayPan = Gesture.Pan()
     .activeOffsetY([-18, 18])
@@ -170,10 +198,11 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
     .onEnd((e) => {
       const tg = rollTarget.value;
       if (!tg) {
-        pendingDir.value = 0;
+        // beginRoll() is still on its way: let it finish the swipe when it lands
+        if (pendingDir.value !== 0) flick.value = e.velocityY || 1;
         return;
       }
-      const goes = roll.value > 0.35 || (tg.dir === 1 ? e.velocityY < -600 : e.velocityY > 600);
+      const goes = roll.value > COMMIT_AT || (tg.dir === 1 ? e.velocityY < -FLICK : e.velocityY > FLICK);
       roll.value = withTiming(goes ? 1 : 0, { duration: goes ? 420 : 260, easing: EASE_OUT }, (done) => {
         if (done) runOnJS(finishRoll)(goes);
       });
@@ -255,9 +284,10 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   const barBottom = Math.max(insets.bottom, 12);
   // The forest band: from the bottom edge up to a bit under the ring. The
   // macro chips and the capture bar float over its foreground.
-  const forestH = Math.round(height * 0.46);
+  const forestH = Math.round(height * 0.5);
   const stripBottom = barBottom + BAR_HEIGHT + 12;
-  const bottomReserve = forestH - 24;
+  // the page keeps clear of the tree tops, not of the whole band
+  const bottomReserve = forestH - 60;
   const current = dayState(viewing);
   const targets = useMemo(() => macroTargets(settings.goalKcal), [settings.goalKcal]);
   const targetDay = target ? pages[target.index] : null;
@@ -292,14 +322,12 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
       <StatusBar style="dark" />
       <GestureDetector gesture={gestures}>
         <View style={StyleSheet.absoluteFill}>
-          {targetDay ? (
-            <Animated.View style={[StyleSheet.absoluteFill, targetStyle]} pointerEvents="none">
-              {page(targetDay)}
+          {/* one layer per day in play, keyed by day so a page keeps its tree when it becomes the current one */}
+          {(targetDay && targetDay !== viewing ? [targetDay, viewing] : [viewing]).map((day) => (
+            <Animated.View key={day} style={[StyleSheet.absoluteFill, settling ? undefined : day === viewing ? currentStyle : targetStyle]} pointerEvents="none">
+              {page(day)}
             </Animated.View>
-          ) : null}
-          <Animated.View style={[StyleSheet.absoluteFill, currentStyle]} pointerEvents="none">
-            {page(viewing)}
-          </Animated.View>
+          ))}
 
           {/* the forest and the macro chips sit over the pages, under the notes */}
           <Forest ref={forest} width={width} height={forestH} weekday={weekdayIndex(viewing)} growth={current.growth} over={current.over} night={night} active={appActive} roll={roll} />

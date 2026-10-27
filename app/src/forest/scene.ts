@@ -109,6 +109,8 @@ function rayTexture(): THREE.DataTexture {
 const R = 20;
 /** How far a day's forest sits around the planet from the one before/after it. */
 const STEP = 0.96;
+/** Where the camera looks (height at z = −1.5): lower puts the horizon higher in the band. */
+const LOOK_Y = 0.3;
 
 function hills(x: number, z: number) {
   return 0.16 * Math.sin(x * 0.55 + 1.3) * Math.cos(z * 0.45) + 0.09 * Math.sin(x * 1.3 + z * 0.9);
@@ -208,8 +210,10 @@ export class ForestScene {
     this.renderer.toneMappingExposure = 0.98;
 
     this.camera = new THREE.PerspectiveCamera(34, width / height, 0.1, 60);
-    this.camera.position.set(0, 2.0, 7.2);
-    this.camera.lookAt(0, 1.1, -1.5);
+    // close and pitched down a little, so the trees stand above the chips and
+    // bar that float over the lower third of the band
+    this.camera.position.set(0, 2.0, 6.4);
+    this.camera.lookAt(0, LOOK_Y, -1.5);
 
     this.fog = new THREE.Fog(PALETTES.meadow.fog, 9, 21);
     this.scene.fog = this.fog;
@@ -233,13 +237,13 @@ export class ForestScene {
 
     // the sun itself, and a few soft rays leaning into the scene
     this.sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.dot, color: 0xfff3c8, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
-    this.sunSprite.position.set(-2.6, 4.3, -12);
+    this.sunSprite.position.set(-2.6, 2.3, -12);
     this.sunSprite.scale.set(3.4, 3.4, 1);
     this.scene.add(this.sunSprite);
     const rayTex = rayTexture();
     for (let i = 0; i < 4; i++) {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(0.9 + i * 0.3, 16), new THREE.MeshBasicMaterial({ map: rayTex, color: 0xfff0c0, transparent: true, opacity: 0.05, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-      m.position.set(-2.6 + i * 0.5, 4.1, -11);
+      m.position.set(-2.6 + i * 0.5, 2.8, -11);
       m.rotation.z = -0.55 - i * 0.12;
       m.rotation.x = 0.15;
       m.translateY(-7);
@@ -721,7 +725,7 @@ export class ForestScene {
     this.tilt.lerp(this.tiltTarget, Math.min(1, dt * 4));
     this.camera.position.x = this.tilt.x * 1.1 + Math.sin(t * 0.11) * 0.12;
     this.camera.position.y = 2.0 - this.tilt.y * 0.7 + Math.sin(t * 0.17) * 0.05;
-    this.camera.lookAt(0, 1.1, -1.5);
+    this.camera.lookAt(0, LOOK_Y, -1.5);
 
     // plants: grow, die, sway, turn
     const wind = 1 + 0.35 * Math.sin(t * 0.37);
