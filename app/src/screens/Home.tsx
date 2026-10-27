@@ -51,6 +51,8 @@ const ROLL_DISTANCE = 260;
 /** Past this share of the way (or faster than FLICK pt/s) a released swipe goes through. */
 const COMMIT_AT = 0.25;
 const FLICK = 400;
+/** How far the finger must move before the swipe's direction is trusted. */
+const DECIDE_AT = 12;
 
 export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   const { width, height } = useWindowDimensions();
@@ -171,6 +173,17 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
     },
     [roll, rollTarget, pendingDir],
   );
+  const turnRoll = useCallback(
+    (dir: 1 | -1) => {
+      if (rollTarget.value) {
+        forest.current?.cancelRoll();
+        rollTarget.value = null;
+        setTarget(null);
+      }
+      beginRoll(dir);
+    },
+    [rollTarget, beginRoll],
+  );
   useLayoutEffect(() => {
     if (!settling) return;
     roll.value = 0;
@@ -186,17 +199,26 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
     .failOffsetX([-14, 14])
     .onChange((e) => {
       const dir: 1 | -1 = e.translationY < 0 ? 1 : -1;
+      const dist = Math.abs(e.translationY);
       const tg = rollTarget.value;
       if (!tg) {
-        // ask the JS side for the day in that direction, once
-        if (pendingDir.value !== dir) {
+        // the first events of a drag can carry a tiny translation with the
+        // wrong sign: wait for a clear move, then ask JS for the day that way, once
+        if (dist < DECIDE_AT || pendingDir.value === dir) return;
+        pendingDir.value = dir;
+        runOnJS(beginRoll)(dir);
+        return;
+      }
+      if (tg.dir !== dir) {
+        // the finger has turned round before the roll got anywhere: roll the other way instead
+        roll.value = 0;
+        if (dist > DECIDE_AT * 2 && pendingDir.value !== dir) {
           pendingDir.value = dir;
-          runOnJS(beginRoll)(dir);
+          runOnJS(turnRoll)(dir);
         }
         return;
       }
-      // a finger that comes back past the start just holds the roll at 0
-      roll.value = tg.dir === dir ? Math.min(1, Math.abs(e.translationY) / ROLL_DISTANCE) : 0;
+      roll.value = Math.min(1, dist / ROLL_DISTANCE);
     })
     .onEnd((e) => {
       const tg = rollTarget.value;

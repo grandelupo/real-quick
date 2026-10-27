@@ -134,6 +134,91 @@ function surface(x: number, z: number, lift = 0, turn = 0): THREE.Vector3 {
   return dir.multiplyScalar(R + hills(lon * R * 0.5, lat * R * 0.5) + lift);
 }
 
+const UP = new THREE.Vector3(0, 1, 0);
+const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+
+/** A tapered limb from `a` to `b`: trunks, branches, stems. */
+function limb(a: THREE.Vector3, b: THREE.Vector3, r0: number, r1: number, mat: THREE.Material, seg = 10): THREE.Mesh {
+  const d = b.clone().sub(a);
+  const len = d.length();
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, len, seg), mat);
+  m.position.copy(a).addScaledVector(d, 0.5);
+  m.quaternion.setFromUnitVectors(UP, d.normalize());
+  return m;
+}
+
+/** A slightly irregular ball of clay: canopy lobes, bushes, stones. */
+function blob(r: number, mat: THREE.Material, rand: () => number, detail = 2): THREE.Mesh {
+  const m = new THREE.Mesh(new THREE.IcosahedronGeometry(r, detail), mat);
+  m.scale.set(0.9 + rand() * 0.25, 0.85 + rand() * 0.2, 0.9 + rand() * 0.25);
+  m.rotation.set(rand() * 0.6, rand() * Math.PI, rand() * 0.6);
+  return m;
+}
+
+/** Three little root bumps at a trunk's foot. */
+function roots(group: THREE.Group, mat: THREE.Material, rand: () => number) {
+  for (let i = 0; i < 3; i++) {
+    const a = i * 2.1 + rand() * 0.6;
+    const b = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 8), mat);
+    b.scale.set(1.4, 0.5, 0.8);
+    b.position.set(Math.cos(a) * 0.1, 0.02, Math.sin(a) * 0.1);
+    b.rotation.y = -a;
+    group.add(b);
+  }
+}
+
+/** A toadstool: cream stem, a domed cap with three white dots. */
+function mushroom(group: THREE.Group, scene: ForestScene, rand: () => number, capMat: THREE.Material) {
+  const h = 0.11 + rand() * 0.06;
+  group.add(limb(V(0, 0, 0), V(0, h, 0), 0.035, 0.03, scene.clay(0xf2e6d0), 10));
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.085, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), capMat);
+  cap.scale.y = 0.65;
+  cap.position.y = h - 0.01;
+  group.add(cap);
+  const dot = scene.clay(0xffffff);
+  for (let i = 0; i < 3; i++) {
+    const a = i * 2.1 + rand();
+    const d = new THREE.Mesh(new THREE.SphereGeometry(0.014, 8, 6), dot);
+    d.position.set(Math.cos(a) * 0.05, h + 0.03, Math.sin(a) * 0.05);
+    group.add(d);
+  }
+}
+
+/** One tapered limb, unit size: instanced for every branch segment of a tree. */
+const UNIT_LIMB = new THREE.CylinderGeometry(0.62, 1, 1, 8);
+/** A leaf card: a rounded flat shape, scaled per leaf. */
+const LEAF = new THREE.CircleGeometry(0.5, 7);
+
+interface Seg {
+  a: THREE.Vector3;
+  b: THREE.Vector3;
+  r: number;
+}
+
+/** How a kind of tree grows: its skeleton and its leaves. */
+interface TreeSpec {
+  trunk: number;
+  trunkR: number;
+  /** Branch levels below the trunk (3 = limbs, branches, twigs). */
+  levels: number;
+  /** 1: the first branches leave the trunk near its top; more: rings up the trunk (a fir). */
+  whorls: number;
+  perWhorl: number;
+  /** Where on the trunk the first branches start (share of its height). */
+  firstFrom: number;
+  /** Angle a branch turns away from its parent, radians. */
+  spread: number;
+  /** Upward pull on every branch direction. */
+  lift: number;
+  /** Length of a child over its parent. */
+  lenFall: number;
+  branchLen: number;
+  leaf: { size: number; aspect: number; per: number; along: boolean };
+  snow?: boolean;
+  flat?: boolean;
+  fruit?: number;
+}
+
 export class ForestScene {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
@@ -153,6 +238,8 @@ export class ForestScene {
   private particles: THREE.Points;
   private particleVel: Float32Array;
   private particleMat: THREE.PointsMaterial;
+  /** A few points of light that drift between the trees after dark. */
+  private fireflies: THREE.Mesh[] = [];
   private dot = softDot();
   private biome: Biome = 'meadow';
   private shownOver = 0;
@@ -218,7 +305,7 @@ export class ForestScene {
     this.fog = new THREE.Fog(PALETTES.meadow.fog, 10, 24);
     this.scene.fog = this.fog;
 
-    this.hemi = new THREE.HemisphereLight(0xfff4dc, 0x9fb08a, 0.85);
+    this.hemi = new THREE.HemisphereLight(0xfff4dc, 0x9fb08a, 1.05);
     this.scene.add(this.hemi);
     this.sun = new THREE.DirectionalLight(0xffe8bf, 1.45);
     this.sun.position.set(-4.5, 6.5, 2.5);
@@ -233,7 +320,7 @@ export class ForestScene {
     this.sun.shadow.bias = -0.0015;
     this.sun.shadow.radius = 6;
     this.scene.add(this.sun);
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.06));
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.12));
     // a cool fill from the viewer's side rounds the shapes off
     const fill = new THREE.DirectionalLight(0xd6e4ff, 0.3);
     fill.position.set(4, 3, 7);
@@ -298,6 +385,15 @@ export class ForestScene {
     this.particles = new THREE.Points(pg, this.particleMat);
     this.scene.add(this.particles);
 
+    const fly = this.glow(0xfff2a0, 2.4);
+    for (let i = 0; i < 6; i++) {
+      const f = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), fly);
+      f.position.set(-3 + i * 1.2, 0.7 + (i % 3) * 0.35, -2.5 + (i % 2) * 2);
+      f.scale.setScalar(0.001);
+      this.fireflies.push(f);
+      this.scene.add(f);
+    }
+
     this.setDay(0, true);
   }
 
@@ -328,14 +424,15 @@ export class ForestScene {
   }
 
   /**
-   * The roll to another day. `dir` +1: the next forest waits beyond the far
-   * horizon and the planet rolls it in; −1: it waits past the near edge and
-   * rises. `setRoll(k)` with k in [0, 1] drives it; commit or cancel ends it.
+   * The roll to another day. `dir` +1 (a swipe up): the planet turns away
+   * from the viewer and the next forest rises past the near edge; −1: it
+   * comes over the far horizon. `setRoll(k)` with k in [0, 1] drives it;
+   * commit or cancel ends it.
    */
   beginRoll(dir: 1 | -1, weekday: number, growth: number, over: number) {
     this.dropIncoming();
     const biome = BIOME_BY_DAY[((weekday % 7) + 7) % 7];
-    this.incoming = this.buildSet(biome, weekday, -dir * STEP);
+    this.incoming = this.buildSet(biome, weekday, dir * STEP);
     this.incoming.growth = Math.min(1, Math.max(0, growth));
     this.incoming.over = Math.min(1, Math.max(0, over));
     this.rollDir = dir;
@@ -350,7 +447,7 @@ export class ForestScene {
 
   setRoll(k: number) {
     this.k = Math.min(1, Math.max(0, k));
-    this.planet.rotation.x = this.rollDir * this.k * STEP;
+    this.planet.rotation.x = -this.rollDir * this.k * STEP;
   }
 
   commitRoll() {
@@ -360,7 +457,7 @@ export class ForestScene {
     this.incoming = null;
     this.current.group.rotation.x = 0;
     // keep the ground where it is in the world while the frame of reference resets
-    this.ground.rotation.x += this.rollDir * STEP;
+    this.ground.rotation.x -= this.rollDir * STEP;
     this.planet.rotation.x = 0;
     this.k = 0;
     this.applyBiome(this.current.biome, false);
@@ -403,7 +500,8 @@ export class ForestScene {
       if (pl.set !== set) continue;
       pl.group.traverse((o) => {
         const mesh = o as THREE.Mesh;
-        if (mesh.isMesh) mesh.geometry.dispose();
+        // the instanced limb and leaf shapes are shared by every tree; never dispose those
+        if (mesh.isMesh && mesh.geometry !== UNIT_LIMB && mesh.geometry !== LEAF) mesh.geometry.dispose();
       });
       for (const m of pl.mats) m.dispose();
       this.plants.splice(i, 1);
@@ -494,7 +592,7 @@ export class ForestScene {
       const s = pick(row[0], row[1], i < 6 ? -6 : -4.6, i < 6 ? 6 : 4.6, 16, i < 6 ? 1.0 : 1.5);
       if (!s) continue;
       const { group, mats } = this.makeTree(biome, pal, r);
-      const size = (i < 6 ? 1.4 : i < 11 ? 1.2 : 1.0) * (0.85 + r() * 0.35);
+      const size = (i < 6 ? 1.25 : i < 11 ? 1.05 : 0.85) * (0.85 + r() * 0.35);
       group.children.forEach((c) => c.scale.multiplyScalar(size));
       // a few trees in every row are always there; the rest come with the day's intake
       const always = i < 2 || i === 6 || i === 7 || i === 11;
@@ -517,156 +615,358 @@ export class ForestScene {
     }
   }
 
+  // ---------------------------------------------------------- materials --
+
+  /** Matte clay: the default for everything, smooth and without facets. */
   private std(color: number, extra: Partial<THREE.MeshStandardMaterialParameters> = {}) {
-    // smooth, matte, no facets: the clay look of the rest of the app
     const m = new THREE.MeshStandardMaterial({ color, flatShading: false, roughness: 0.92, metalness: 0, ...extra });
     m.userData.base = new THREE.Color(color);
     return m;
   }
+
+  /** The matte clay material, for helpers outside the class. */
+  clay(color: number) {
+    return this.std(color);
+  }
+
+  /** Candy gloss, for the few things that shine: fruit, berries, caps, eyes. */
+  private gloss(color: number) {
+    const m = new THREE.MeshPhysicalMaterial({ color, roughness: 0.22, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.12 });
+    m.userData.base = new THREE.Color(color);
+    return m;
+  }
+
+  /** Light of its own: fireflies, the glowing caps on the lavender day. */
+  private glow(color: number, strength = 1.6) {
+    const m = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: strength, roughness: 1, metalness: 0 });
+    m.userData.base = new THREE.Color(color);
+    return m;
+  }
+
+  // -------------------------------------------------------------- trees --
 
   private makeTree(biome: Biome, pal: Palette, r: () => number) {
     const group = new THREE.Group();
     const mats: THREE.MeshStandardMaterial[] = [];
     const trunkMat = this.std(pal.trunk);
     const pickF = () => pal.foliage[Math.floor(r() * pal.foliage.length)];
-    if (biome === 'winter') {
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.11, 0.6, 14), trunkMat);
-      trunk.position.y = 0.3;
-      group.add(trunk);
-      const tiers = 3;
-      for (let i = 0; i < tiers; i++) {
-        const rad = 0.62 - i * 0.15;
-        const h = 0.75;
-        const y = 0.55 + i * 0.5;
-        const m = this.std(pickF());
-        mats.push(m);
-        const cone = new THREE.Mesh(new THREE.ConeGeometry(rad, h, 18), m);
-        cone.position.y = y + h / 2;
-        group.add(cone);
-        const snow = new THREE.Mesh(new THREE.ConeGeometry(rad * 0.72, h * 0.35, 18), this.std(0xffffff, { roughness: 1 }));
-        snow.position.y = y + h - h * 0.35 / 2 + 0.01;
-        group.add(snow);
-      }
-    } else if (biome === 'tropical') {
+
+    if (biome === 'tropical') {
+      // a palm: a leaning trunk, fronds with leaflets, glossy coconuts
       let y = 0;
       let x = 0;
-      for (let i = 0; i < 6; i++) {
-        const seg = new THREE.Mesh(new THREE.CylinderGeometry(0.09 - i * 0.005, 0.11 - i * 0.005, 0.44, 14), trunkMat);
-        seg.position.set(x, y + 0.22, 0);
-        seg.rotation.z = -0.08 * i;
-        group.add(seg);
-        y += 0.42;
-        x += 0.06 * i;
+      let last = V(0, 0, 0);
+      for (let i = 0; i < 5; i++) {
+        const next = V(x + 0.05 * i, y + 0.38, 0);
+        group.add(limb(last, next, 0.1 - i * 0.006, 0.09 - i * 0.006, trunkMat, 12));
+        last = next;
+        y = next.y;
+        x = next.x;
       }
-      const leafMat = this.std(pickF(), { side: THREE.DoubleSide });
-      mats.push(leafMat);
+      const frond = this.std(pickF(), { side: THREE.DoubleSide });
+      mats.push(frond);
       for (let i = 0; i < 7; i++) {
-        const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.2, 1.6, 12), leafMat);
-        leaf.scale.z = 0.45;
-        const a = (i / 7) * Math.PI * 2 + 0.3;
-        leaf.position.set(x + Math.cos(a) * 0.58, y - 0.12, Math.sin(a) * 0.58);
-        leaf.rotation.set(Math.sin(a) * 1.42, 0, -Math.cos(a) * 1.42);
-        group.add(leaf);
+        const a = (i / 7) * Math.PI * 2 + r() * 0.5;
+        const dir = V(Math.cos(a) * 0.85, 0.2 - r() * 0.1, Math.sin(a) * 0.85);
+        const end = last.clone().add(dir);
+        end.y -= 0.4;
+        group.add(limb(last, end, 0.022, 0.008, trunkMat, 6));
+        // leaflets: flat cards either side of the stalk, drooping more towards the tip
+        const along = end.clone().sub(last).normalize();
+        const side = new THREE.Vector3().crossVectors(along, UP).normalize();
+        for (let j = 0; j < 8; j++) {
+          const t = 0.15 + j * 0.11;
+          const at = last.clone().lerp(end, t);
+          for (const sg of [-1, 1]) {
+            const droop = 0.35 + j * 0.09;
+            const xAxis = side.clone().multiplyScalar(sg).multiplyScalar(Math.cos(droop)).addScaledVector(UP, -Math.sin(droop)).normalize();
+            const zAxis = new THREE.Vector3().crossVectors(xAxis, along).normalize();
+            const leaflet = new THREE.Mesh(LEAF, frond);
+            leaflet.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xAxis, along, zAxis));
+            leaflet.scale.set(0.34 - j * 0.02, 0.085, 1);
+            leaflet.position.copy(at).addScaledVector(xAxis, 0.14 - j * 0.008);
+            group.add(leaflet);
+          }
+        }
       }
-      const coco = this.std(0x6b4a33);
+      const coco = this.gloss(0x6b4a33);
       for (let i = 0; i < 3; i++) {
-        const c = new THREE.Mesh(new THREE.IcosahedronGeometry(0.09, 2), coco);
-        c.position.set(x + Math.cos(i * 2.1) * 0.12, y - 0.1, Math.sin(i * 2.1) * 0.12);
+        const c = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 10), coco);
+        c.position.set(last.x + Math.cos(i * 2.1) * 0.11, last.y - 0.12, Math.sin(i * 2.1) * 0.11);
         group.add(c);
       }
-    } else if (biome === 'golden') {
-      // a flat-topped acacia
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 1.3, 14), trunkMat);
-      trunk.position.y = 0.65;
-      group.add(trunk);
-      const m = this.std(pickF());
-      mats.push(m);
-      const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.55, 0.42, 20), m);
-      crown.position.y = 1.5;
-      group.add(crown);
-      const m2 = this.std(pickF());
-      mats.push(m2);
-      const crown2 = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.3, 0.3, 20), m2);
-      crown2.position.set(0.25, 1.85, 0.1);
-      group.add(crown2);
-    } else {
-      // round deciduous tree: trunk + three canopy lobes
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.12, 0.95, 14), trunkMat);
-      trunk.position.y = 0.47;
-      group.add(trunk);
-      const lobes: [number, number, number, number][] = [[0, 1.25, 0, 0.55], [-0.32, 1.05, 0.12, 0.4], [0.3, 1.1, -0.1, 0.42], [0.02, 1.6, 0.02, 0.36]];
-      for (const [x, y, z, s] of lobes) {
-        const m = this.std(pickF());
-        mats.push(m);
-        const lobe = new THREE.Mesh(new THREE.IcosahedronGeometry(s, 3), m);
-        lobe.scale.y = 0.88;
-        lobe.position.set(x, y, z);
-        group.add(lobe);
+      return { group, mats };
+    }
+
+    // every other tree: a branching skeleton with leaves on the outer twigs
+    const spec: TreeSpec =
+      biome === 'winter'
+        ? { trunk: 1.5, trunkR: 0.07, levels: 2, whorls: 5, perWhorl: 5, firstFrom: 0.2, spread: 1.3, lift: -0.12, lenFall: 0.5, branchLen: 0.58, leaf: { size: 0.12, aspect: 0.2, per: 18, along: true }, snow: true }
+        : biome === 'golden'
+          ? { trunk: 0.95, trunkR: 0.085, levels: 3, whorls: 1, perWhorl: 3, firstFrom: 0.75, spread: 1.15, lift: 0.1, lenFall: 0.7, branchLen: 0.6, leaf: { size: 0.1, aspect: 0.5, per: 12, along: false }, flat: true }
+          : biome === 'lavender'
+            ? { trunk: 0.75, trunkR: 0.09, levels: 3, whorls: 1, perWhorl: 3, firstFrom: 0.6, spread: 0.85, lift: 0.35, lenFall: 0.7, branchLen: 0.5, leaf: { size: 0.1, aspect: 0.35, per: 16, along: true } }
+            : { trunk: 0.9 + r() * 0.3, trunkR: 0.1, levels: 3, whorls: 1, perWhorl: 3 + Math.floor(r() * 2), firstFrom: 0.55, spread: 0.75, lift: 0.45, lenFall: 0.68, branchLen: 0.55, leaf: { size: 0.13, aspect: 0.75, per: 14, along: false }, fruit: biome === 'autumn' ? 0xd9362b : biome === 'sakura' ? 0xffffff : undefined };
+
+    const segs: Seg[] = [];
+    const tips: THREE.Vector3[] = [];
+    // the trunk
+    segs.push({ a: V(0, 0, 0), b: V(0, spec.trunk, 0), r: spec.trunkR });
+    roots(group, trunkMat, r);
+    const grow = (a: THREE.Vector3, dir: THREE.Vector3, len: number, rad: number, level: number) => {
+      const b = a.clone().addScaledVector(dir, len);
+      segs.push({ a, b, r: rad });
+      if (level <= 1) tips.push(b);
+      if (spec.leaf.along && level <= 1) tips.push(a.clone().lerp(b, 0.5));
+      if (level === 0) return;
+      const n = level === spec.levels ? spec.perWhorl : 2;
+      for (let i = 0; i < n; i++) {
+        // turn away from the parent by `spread`, around it by a random azimuth, then lift a little
+        const az = (i / n) * Math.PI * 2 + r() * 1.2;
+        const side = new THREE.Vector3().crossVectors(dir, Math.abs(dir.y) < 0.9 ? UP : V(1, 0, 0)).normalize();
+        const other = new THREE.Vector3().crossVectors(dir, side);
+        const turn = spec.spread * (0.6 + r() * 0.5) * (spec.flat && level < spec.levels ? 0.5 : 1);
+        const nd = dir.clone().multiplyScalar(Math.cos(turn)).addScaledVector(side, Math.sin(turn) * Math.cos(az)).addScaledVector(other, Math.sin(turn) * Math.sin(az));
+        nd.y += spec.lift;
+        if (spec.flat) nd.y *= 0.4;
+        nd.normalize();
+        grow(b, nd, len * spec.lenFall * (0.85 + r() * 0.3), rad * 0.62, level - 1);
+      }
+    };
+    // first-level branches come off the trunk, at one height or in whorls
+    for (let w = 0; w < spec.whorls; w++) {
+      const t = spec.whorls === 1 ? spec.firstFrom + r() * (1 - spec.firstFrom) : spec.firstFrom + (w / (spec.whorls - 1)) * (0.95 - spec.firstFrom);
+      const at = V(0, spec.trunk * t, 0);
+      const len = spec.branchLen * (spec.whorls === 1 ? 1 : 1.1 - t * 0.75);
+      const n = spec.whorls === 1 ? spec.perWhorl : spec.perWhorl;
+      for (let i = 0; i < n; i++) {
+        const az = (i / n) * Math.PI * 2 + r() * 0.8;
+        const dir = V(Math.sin(spec.spread) * Math.cos(az), Math.cos(spec.spread) + spec.lift, Math.sin(spec.spread) * Math.sin(az)).normalize();
+        const start = spec.whorls === 1 ? V(0, spec.trunk * (spec.firstFrom + r() * (1 - spec.firstFrom)), 0) : at;
+        grow(start, dir, len * (0.85 + r() * 0.3), spec.trunkR * 0.5, spec.levels - 1);
+      }
+    }
+    if (spec.whorls === 1) {
+      // a leader on top
+      grow(V(0, spec.trunk, 0), V(0.1 * (r() - 0.5), 1, 0.1 * (r() - 0.5)).normalize(), spec.branchLen * 0.8, spec.trunkR * 0.55, spec.levels - 1);
+    }
+
+    // wood: one instanced tapered cylinder per segment
+    const wood = new THREE.InstancedMesh(UNIT_LIMB, trunkMat, segs.length);
+    const m4 = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    segs.forEach((sg, i) => {
+      const d = sg.b.clone().sub(sg.a);
+      const len = d.length();
+      q.setFromUnitVectors(UP, d.normalize());
+      m4.compose(sg.a.clone().addScaledVector(d, len / 2), q, V(sg.r, len, sg.r));
+      wood.setMatrixAt(i, m4);
+    });
+    group.add(wood);
+
+    // leaves: flat cards scattered around every tip, each its own tint
+    const leafMat = this.std(0xffffff, { side: THREE.DoubleSide });
+    leafMat.userData.base = new THREE.Color(0xffffff);
+    mats.push(leafMat);
+    const count = tips.length * spec.leaf.per;
+    const leaves = new THREE.InstancedMesh(LEAF, leafMat, count);
+    const col = new THREE.Color();
+    const tint = new THREE.Color();
+    let i = 0;
+    for (const tip of tips) {
+      for (let j = 0; j < spec.leaf.per; j++) {
+        const dir = V(r() - 0.5, r() - 0.5, r() - 0.5).normalize();
+        const p = tip.clone().addScaledVector(dir, 0.04 + r() * (spec.snow ? 0.12 : 0.2));
+        q.setFromEuler(new THREE.Euler(r() * Math.PI, r() * Math.PI, r() * Math.PI));
+        const s = spec.leaf.size * (0.8 + r() * 0.5);
+        m4.compose(p, q, V(s, s * spec.leaf.aspect, s));
+        leaves.setMatrixAt(i, m4);
+        col.set(pickF());
+        tint.setHSL(0, 0, 0.75 + r() * 0.25);
+        leaves.setColorAt(i, col.lerp(tint, 0.12));
+        i++;
+      }
+    }
+    group.add(leaves);
+
+    if (spec.snow) {
+      // snow resting on the branches
+      const snowMat = this.std(0xffffff, { roughness: 1 });
+      const snow = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 8, 6), snowMat, tips.length);
+      tips.forEach((tip, k) => {
+        m4.compose(tip.clone().add(V(0, 0.04, 0)), new THREE.Quaternion(), V(0.06 + r() * 0.04, 0.028, 0.05 + r() * 0.04));
+        snow.setMatrixAt(k, m4);
+      });
+      group.add(snow);
+    }
+    if (spec.fruit) {
+      const fruitMat = this.gloss(spec.fruit);
+      const n = 3 + Math.floor(r() * 3);
+      for (let k = 0; k < n; k++) {
+        const tip = tips[Math.floor(r() * tips.length)];
+        const f = new THREE.Mesh(new THREE.SphereGeometry(spec.fruit === 0xffffff ? 0.03 : 0.045, 12, 10), fruitMat);
+        f.position.copy(tip).add(V((r() - 0.5) * 0.1, -0.08, (r() - 0.5) * 0.1));
+        group.add(f);
       }
     }
     return { group, mats };
   }
 
+  // ------------------------------------------------------- small plants --
+
   private makeSmall(biome: Biome, pal: Palette, r: () => number) {
     const group = new THREE.Group();
     const mats: THREE.MeshStandardMaterial[] = [];
     const accent = () => pal.accent[Math.floor(r() * pal.accent.length)];
+    const foliage = () => pal.foliage[Math.floor(r() * pal.foliage.length)];
+    const leaf = (color: number) => {
+      const m = this.std(color);
+      mats.push(m);
+      return m;
+    };
+    const stemMat = this.std(0x6f9a5c);
     const k = r();
-    if (biome === 'lavender' && k < 0.75) {
-      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.02, 0.3, 10), this.std(0x6f9a5c));
-      stem.position.y = 0.15;
-      group.add(stem);
-      const m = this.std(accent());
-      mats.push(m);
-      const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.09, 3), m);
-      head.scale.set(1, 2.4, 1);
-      head.position.y = 0.42;
+
+    if (biome === 'winter') {
+      if (k < 0.1) {
+        // a snowman
+        const snow = this.std(0xffffff, { roughness: 1 });
+        const sizes = [0.15, 0.11, 0.08];
+        let y = 0.1;
+        for (const s of sizes) {
+          const ball = new THREE.Mesh(new THREE.SphereGeometry(s, 16, 12), snow);
+          ball.position.y = y;
+          group.add(ball);
+          y += s * 1.6;
+        }
+        const headY = y - sizes[2] * 1.6;
+        const coal = this.gloss(0x2b2350);
+        for (const side of [-1, 1]) {
+          const eye = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 6), coal);
+          eye.position.set(side * 0.028, headY + 0.02, 0.07);
+          group.add(eye);
+        }
+        const nose = new THREE.Mesh(new THREE.ConeGeometry(0.014, 0.08, 8), this.std(0xff8a3d));
+        nose.position.set(0, headY, 0.1);
+        nose.rotation.x = Math.PI / 2;
+        group.add(nose);
+        const arms = this.std(0x6f5649);
+        for (const side of [-1, 1]) {
+          group.add(limb(V(side * 0.09, sizes[0] * 1.6 + 0.08, 0), V(side * 0.27, sizes[0] * 1.6 + 0.2, 0.02), 0.012, 0.006, arms, 6));
+        }
+      } else {
+        const mound = blob(0.16 + r() * 0.14, this.std(0xffffff, { roughness: 1 }), r);
+        mound.scale.y *= 0.5;
+        group.add(mound);
+      }
+      return { group, mats };
+    }
+
+    if (biome === 'lavender' && k < 0.55) {
+      // a lavender spike: beads of purple up a stem
+      group.add(limb(V(0, 0, 0), V(0, 0.34, 0), 0.016, 0.012, stemMat, 6));
+      const m = leaf(accent());
+      for (let i = 0; i < 4; i++) {
+        const bead = new THREE.Mesh(new THREE.SphereGeometry(0.045 - i * 0.007, 10, 8), m);
+        bead.position.y = 0.3 + i * 0.065;
+        group.add(bead);
+      }
+      return { group, mats };
+    }
+    if (biome === 'lavender' && k < 0.7) {
+      mushroom(group, this, r, this.glow(0xb59cff, 1.4));
+      return { group, mats };
+    }
+    if (biome === 'golden' && k < 0.5) {
+      // a sunflower
+      group.add(limb(V(0, 0, 0), V(0, 0.74, 0), 0.022, 0.016, stemMat, 8));
+      const head = new THREE.Group();
+      head.position.y = 0.76;
+      head.rotation.x = 1.2;
+      const centre = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.035, 20), this.std(0x6b4a2e));
+      head.add(centre);
+      const petal = leaf(0xffd43b);
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        const p = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), petal);
+        p.scale.set(1.5, 0.3, 0.6);
+        p.position.set(Math.cos(a) * 0.14, 0, Math.sin(a) * 0.14);
+        p.rotation.y = -a;
+        head.add(p);
+      }
       group.add(head);
-    } else if (biome === 'golden' && k < 0.6) {
-      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.024, 0.75, 10), this.std(0x6f9a5c));
-      stem.position.y = 0.37;
-      group.add(stem);
-      const m = this.std(0xffd43b);
-      mats.push(m);
-      const petals = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.03, 24), m);
-      petals.position.y = 0.76;
-      petals.rotation.x = 1.25;
-      group.add(petals);
-      const centre = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.04, 24), this.std(0x6b4a2e));
-      centre.position.set(0, 0.77, 0.02);
-      centre.rotation.x = 1.25;
+      return { group, mats };
+    }
+    if (biome === 'autumn' && k < 0.3) {
+      // leaves on the ground
+      for (let i = 0; i < 4; i++) {
+        const l = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), leaf(accent()));
+        l.scale.set(1, 0.18, 0.7);
+        l.position.set((r() - 0.5) * 0.4, 0.01, (r() - 0.5) * 0.4);
+        l.rotation.y = r() * Math.PI;
+        group.add(l);
+      }
+      return { group, mats };
+    }
+    if (k < 0.12) {
+      // pebbles
+      const stone = this.std(r() < 0.5 ? 0x9aa0a6 : 0xb8bcc2);
+      for (let i = 0; i < 2 + Math.floor(r() * 2); i++) {
+        const p = blob(0.05 + r() * 0.05, stone, r);
+        p.scale.y *= 0.6;
+        p.position.set((r() - 0.5) * 0.25, 0.02, (r() - 0.5) * 0.25);
+        group.add(p);
+      }
+    } else if (k < 0.22) {
+      mushroom(group, this, r, this.gloss(biome === 'sakura' ? 0xffb3c6 : 0xe04a3a));
+    } else if (k < 0.3) {
+      // a stump
+      const stump = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.1, 0.13, 14), this.std(pal.trunk));
+      stump.position.y = 0.065;
+      group.add(stump);
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.012, 14), this.std(0xd9b48c));
+      top.position.y = 0.135;
+      group.add(top);
+    } else if (k < 0.55) {
+      // a flower: petals around a glossy centre
+      group.add(limb(V(0, 0, 0), V(0, 0.3, 0), 0.015, 0.011, stemMat, 6));
+      const petal = leaf(accent());
+      const n = 5 + Math.floor(r() * 2);
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        const p = new THREE.Mesh(new THREE.SphereGeometry(0.042, 10, 8), petal);
+        p.scale.set(1.3, 0.35, 0.7);
+        p.position.set(Math.cos(a) * 0.05, 0.31, Math.sin(a) * 0.05);
+        p.rotation.y = -a;
+        p.rotation.z = 0.25;
+        group.add(p);
+      }
+      const centre = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), this.gloss(0xffe27a));
+      centre.position.y = 0.33;
       group.add(centre);
-    } else if (biome === 'winter') {
-      const m = this.std(0xffffff, { roughness: 1 });
-      const mound = new THREE.Mesh(new THREE.IcosahedronGeometry(0.16 + r() * 0.14, 3), m);
-      mound.scale.y = 0.5;
-      group.add(mound);
-    } else if (k < 0.45) {
-      // flower
-      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.016, 0.32, 10), this.std(0x6f9a5c));
-      stem.position.y = 0.16;
-      group.add(stem);
-      const m = this.std(accent());
-      mats.push(m);
-      const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.07, 2), m);
-      head.position.y = 0.34;
-      group.add(head);
-    } else if (k < 0.75) {
-      // bush
-      const m = this.std(pal.foliage[Math.floor(r() * pal.foliage.length)]);
-      mats.push(m);
-      const bush = new THREE.Mesh(new THREE.IcosahedronGeometry(0.24 + r() * 0.12, 3), m);
-      bush.scale.y = 0.75;
-      bush.position.y = 0.12;
-      group.add(bush);
-    } else {
-      // grass tuft
-      const m = this.std(pal.foliage[0]);
-      mats.push(m);
+    } else if (k < 0.78) {
+      // a bush with berries
+      const bushMat = leaf(foliage());
       for (let i = 0; i < 3; i++) {
-        const blade = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.32, 8), m);
-        blade.position.set((i - 1) * 0.05, 0.16, 0);
-        blade.rotation.z = (i - 1) * 0.25;
+        const b = blob(0.11 + r() * 0.06, bushMat, r);
+        b.scale.y *= 0.8;
+        b.position.set((r() - 0.5) * 0.22, 0.1 + r() * 0.06, (r() - 0.5) * 0.22);
+        group.add(b);
+      }
+      const berry = this.gloss(accent());
+      for (let i = 0; i < 4; i++) {
+        const a = r() * Math.PI * 2;
+        const b = new THREE.Mesh(new THREE.SphereGeometry(0.028, 10, 8), berry);
+        b.position.set(Math.cos(a) * 0.13, 0.12 + r() * 0.08, Math.sin(a) * 0.13);
+        group.add(b);
+      }
+    } else {
+      // a grass tuft: green, or straw-coloured on the dry days
+      const m = leaf(biome === 'autumn' || biome === 'golden' ? 0xd2b25a : 0x6fae5a);
+      for (let i = 0; i < 5; i++) {
+        const blade = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.3 + r() * 0.12, 6), m);
+        blade.position.set((i - 2) * 0.035, 0.14, (r() - 0.5) * 0.04);
+        blade.rotation.z = (i - 2) * 0.22;
         group.add(blade);
       }
     }
@@ -767,6 +1067,14 @@ export class ForestScene {
     }
     pos.needsUpdate = true;
     this.particleMat.opacity = this.night && pal.particleKind !== 'snow' ? 0.5 + 0.4 * Math.sin(t * 2.2) : 0.85;
+
+    // fireflies: out after dark, drifting and pulsing slowly
+    this.fireflies.forEach((f, i) => {
+      const want = this.night ? 0.8 + 0.4 * Math.sin(t * 1.7 + i * 1.3) : 0.001;
+      f.scale.setScalar(f.scale.x + (want - f.scale.x) * Math.min(1, dt * 2));
+      f.position.x += Math.sin(t * 0.5 + i) * 0.004;
+      f.position.y += Math.cos(t * 0.7 + i * 0.8) * 0.003;
+    });
 
     this.renderer.render(this.scene, this.camera);
     this.gl.endFrameEXP();

@@ -121,7 +121,13 @@ verified on a real device or via EAS.
   app gates snap/typing on `freeDaysLeft()`. No store intro offer, on purpose.
 - The forest is one GL scene owned by Home (`src/forest/Forest.tsx`); day
   pages only draw the gradient, ring and hero. Keep it procedural (no model
-  files) and keep the frame cheap: ~25 trees, ~50 small plants, 220 points.
+  files): trees are grown from a `TreeSpec` (branch levels, whorls, spread)
+  into one instanced limb mesh and one instanced leaf mesh each, so a tree
+  is two draw calls however many leaves it has. Materials: matte clay by
+  default, `gloss()` only for fruit, berries, caps and eyes, `glow()` for
+  fireflies and the lavender mushrooms. ~14 trees, ~46 small plants, 220
+  points per day. `marketing/…/forest-check.mjs`-style web captures are the
+  way to look at it; the simulator is far too slow.
   Two expo-gl facts the code works around, do not undo them: three ≥ r163
   refuses expo-gl's context because it is an `instanceof
   WebGLRenderingContext` (scene.ts hides the global for the constructor), and
