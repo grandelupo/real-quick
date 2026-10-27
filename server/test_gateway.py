@@ -303,3 +303,39 @@ class HttpTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Coupons(unittest.TestCase):
+    def setUp(self):
+        os.environ["COUPON_CODES"] = "RQ-TEST-YEAR=366,short=1"
+        gateway.COUPONS.data.clear()
+
+    def tearDown(self):
+        os.environ.pop("COUPON_CODES", None)
+
+    def _redeem(self, inst, code, ip="9.9.9.9"):
+        return gateway.handle_coupon(Headers({"X-Install-Id": inst}), json.dumps({"code": code, "tz": "+00:00"}).encode(), ip)
+
+    def test_valid_code_makes_the_install_pro(self):
+        inst = "cccccccc-0000-0000-0000-000000000001"
+        status, body = self._redeem(inst, "rq-test-year")
+        self.assertEqual(status, 200)
+        today = gateway.local_day("+00:00")
+        self.assertEqual(body["until"], (dt.datetime.strptime(today, "%Y-%m-%d") + dt.timedelta(days=366)).strftime("%Y-%m-%d"))
+        # the free window is irrelevant now: counts go through at the Pro limit
+        gateway.INSTALLS.data[inst] = "2020-01-01"
+        h = Headers({"X-Install-Id": inst, "X-Platform": "ios"})
+        status, _ = gateway.handle_analyze(h, json.dumps({"kind": "text", "text": "x"}).encode(), "9.9.9.9")
+        self.assertEqual(status, 200)
+
+    def test_unknown_code_is_refused(self):
+        with self.assertRaises(gateway.GatewayError) as cm:
+            self._redeem("cccccccc-0000-0000-0000-000000000002", "NOPE")
+        self.assertEqual(cm.exception.code, "bad_coupon")
+
+    def test_a_shorter_code_never_cuts_an_existing_coupon(self):
+        inst = "cccccccc-0000-0000-0000-000000000003"
+        _, long_ = self._redeem(inst, "RQ-TEST-YEAR")
+        _, short = self._redeem(inst, "SHORT")
+        self.assertEqual(short["until"], long_["until"])
+

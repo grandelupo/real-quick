@@ -1,31 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import { ActivityIndicator, Linking, Platform, StyleSheet, TextInput, View } from 'react-native';
 import { Hero } from '../art/Hero';
+import { ApiError, redeemCoupon } from '../api';
 import { dayKey, freeDaysLeft } from '../engine';
 import { locale, t } from '../i18n';
-import { buy, loadPlans, perDay, restore, savingsPercent, type Plan } from '../iap';
-import { useStore } from '../store';
-import { BLUSH, INK, INK_FAINT, INK_HAIR, INK_SOFT, MACRO, SHADOW_SM, SURFACE } from '../theme';
+import { buy, loadPlans, restore, type Plan } from '../iap';
+import { setState, useStore } from '../store';
+import { BLUSH, FONT, INK, INK_FAINT, INK_HAIR, INK_SOFT, MACRO, SHADOW_SM, SURFACE } from '../theme';
 import { CheckIcon } from '../ui/Icons';
 import { Pressy, T, haptic } from '../ui/kit';
-import { Button } from '../ui/controls';
 import { Sheet } from './Sheet';
 import { LINKS } from '../links';
 
-// One paywall for every context (end of onboarding, the daily limit,
-// settings). Soft: "Maybe later" always works and the free tier keeps going.
-// Prices, periods and the trial line come from the store, never constants.
+// One paywall for every context (end of onboarding, the free days running
+// out, settings). Plain on purpose: two plans, each a button that says what
+// it costs and how often, one sentence on renewal, the links App Review
+// expects, and nothing derived — no per-day arithmetic, no badges, no timers.
+// Prices and periods come from the store, never constants.
 
 function periodWord(p: Plan) {
   return p.period === 'year' ? t('year') : t('month');
-}
-
-function trialWord(p: Plan) {
-  if (!p.trial) return '';
-  if (p.trial.unit === 'week' && p.trial.value === 1) return t('oneWeek');
-  if (p.trial.unit === 'day' && p.trial.value === 7) return t('oneWeek');
-  return `${p.trial.value} ${p.trial.unit}`;
 }
 
 export function Paywall({ visible, onClose }: { visible: boolean; onClose(): void }) {
@@ -33,56 +27,66 @@ export function Paywall({ visible, onClose }: { visible: boolean; onClose(): voi
   const firstDay = useStore((s) => s.firstDay);
   const locked = !isPro && freeDaysLeft(firstDay, dayKey(new Date())) === 0;
   const [plans, setPlans] = useState<Plan[] | null>(null);
-  const [sel, setSel] = useState<string>('');
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
   const [thanks, setThanks] = useState(false);
+  const [couponOpen, setCouponOpen] = useState(false);
+  const [coupon, setCoupon] = useState('');
+  const [couponNote, setCouponNote] = useState<string | null>(null);
 
   useEffect(() => {
     if (!visible) return;
     setThanks(false);
+    setCouponOpen(false);
+    setCouponNote(null);
     let alive = true;
-    void loadPlans().then((p) => {
-      if (!alive) return;
-      setPlans(p);
-      setSel((cur) => cur || p.find((x) => x.period === 'year')?.id || p[0]?.id || '');
-    });
+    void loadPlans().then((p) => alive && setPlans(p));
     return () => {
       alive = false;
     };
   }, [visible]);
 
-  useEffect(() => {
-    if (visible && isPro && busy) setThanks(true);
-  }, [isPro, visible, busy]);
+  const done = () => {
+    haptic('success');
+    setThanks(true);
+    setTimeout(onClose, 1400);
+  };
 
-  const yearly = plans?.find((p) => p.period === 'year');
-  const monthly = plans?.find((p) => p.period === 'month');
-  const chosen = plans?.find((p) => p.id === sel);
-  const hasTrial = !!chosen?.trial;
+  const purchase = async (plan: Plan) => {
+    setBusy(plan.id);
+    const ok = await buy(plan);
+    setBusy(null);
+    if (ok) done();
+  };
 
-  const purchase = async () => {
-    if (!chosen) return;
-    setBusy(true);
-    const ok = await buy(chosen);
-    setBusy(false);
-    if (ok) {
-      haptic('success');
-      setThanks(true);
-      setTimeout(onClose, 1400);
+  const applyCoupon = async () => {
+    if (!coupon.trim()) return;
+    setBusy('coupon');
+    try {
+      const until = await redeemCoupon(coupon);
+      setState({ isPro: true, proUntil: until });
+      setCouponNote(t('pwCouponOk', { d: new Date(`${until}T12:00:00`).toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' }) }));
+      done();
+    } catch (e) {
+      const code = e instanceof ApiError ? e.code : 'network';
+      setCouponNote(code === 'bad_coupon' ? t('pwCouponBad') : t('pwCouponNet'));
+      haptic('warning');
+    } finally {
+      setBusy(null);
     }
   };
 
+  const monthly = plans?.find((p) => p.period === 'month');
+  const yearly = plans?.find((p) => p.period === 'year');
+  const ordered = [monthly, yearly].filter((p): p is Plan => !!p);
+  const renewKey = Platform.OS === 'android' ? 'pwRenewsAndroid' : 'pwRenews';
+
   const footer = (
-    <View style={{ gap: 8 }}>
-      <Button
-        label={busy ? '…' : hasTrial ? t('pwCta') : t('pwCtaNoTrial')}
-        onPress={() => void purchase()}
-        disabled={!chosen || busy || thanks}
-        testID="paywall-cta"
-      />
-      <T v="small" color={INK_SOFT} style={{ textAlign: 'center' }} testID="paywall-reassure">
-        {hasTrial ? t('pwReassure') : t('pwReassureNoTrial')}
-      </T>
+    <View style={{ gap: 10 }}>
+      {monthly && yearly ? (
+        <T v="small" color={INK_SOFT} style={styles.center} testID="paywall-terms">
+          {t(renewKey, { monthly: monthly.displayPrice, yearly: yearly.displayPrice })}
+        </T>
+      ) : null}
       <View style={styles.links}>
         <Pressy onPress={onClose} hapticKind="none">
           <T v="label" color={INK_SOFT}>
@@ -91,13 +95,10 @@ export function Paywall({ visible, onClose }: { visible: boolean; onClose(): voi
         </Pressy>
         <Pressy
           onPress={async () => {
-            setBusy(true);
+            setBusy('restore');
             const ok = await restore();
-            setBusy(false);
-            if (ok) {
-              setThanks(true);
-              setTimeout(onClose, 1200);
-            }
+            setBusy(null);
+            if (ok) done();
           }}
           hapticKind="none"
         >
@@ -116,13 +117,47 @@ export function Paywall({ visible, onClose }: { visible: boolean; onClose(): voi
           </T>
         </Pressy>
       </View>
+      {couponOpen ? (
+        <View style={styles.couponRow}>
+          <TextInput
+            value={coupon}
+            onChangeText={(v) => {
+              setCoupon(v.toUpperCase());
+              setCouponNote(null);
+            }}
+            placeholder={t('pwCouponTitle')}
+            placeholderTextColor={INK_SOFT}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            autoFocus
+            returnKeyType="done"
+            onSubmitEditing={() => void applyCoupon()}
+            style={styles.couponInput}
+            testID="coupon-input"
+          />
+          <Pressy onPress={() => void applyCoupon()} disabled={!coupon.trim() || busy === 'coupon'} style={[styles.couponBtn, (!coupon.trim() || busy === 'coupon') && { opacity: 0.45 }]} hapticKind="light">
+            <T v="label">{busy === 'coupon' ? '…' : t('pwCouponApply')}</T>
+          </Pressy>
+        </View>
+      ) : (
+        <Pressy onPress={() => setCouponOpen(true)} hapticKind="none" style={{ alignSelf: 'center', paddingVertical: 4 }} testID="coupon-link">
+          <T v="small" color={INK_SOFT}>
+            {t('pwCoupon')}
+          </T>
+        </Pressy>
+      )}
+      {couponNote ? (
+        <T v="small" color={INK_SOFT} style={styles.center}>
+          {couponNote}
+        </T>
+      ) : null}
     </View>
   );
 
   return (
     <Sheet visible={visible} onClose={onClose} footer={footer} maxHeightRatio={0.94}>
       <View style={styles.hero}>
-        <Hero kind="camera" size={120} />
+        <Hero kind="camera" size={110} />
         <T v="title" style={styles.center}>
           {thanks ? t('pwThanks') : locked ? t('pwTitleLocked') : t('pwTitle')}
         </T>
@@ -142,7 +177,7 @@ export function Paywall({ visible, onClose }: { visible: boolean; onClose(): voi
         ))}
       </View>
 
-      <View style={{ marginTop: 20, gap: 10 }}>
+      <View style={{ marginTop: 22, gap: 10 }}>
         {plans === null && <ActivityIndicator color={INK} style={{ marginVertical: 30 }} />}
         {plans !== null && plans.length === 0 && (
           <View style={styles.unavailable}>
@@ -151,47 +186,29 @@ export function Paywall({ visible, onClose }: { visible: boolean; onClose(): voi
             </T>
           </View>
         )}
-        {[yearly, monthly].filter((p): p is Plan => !!p).map((p) => {
-          const on = p.id === sel;
-          return (
-            <Animated.View key={p.id} entering={FadeIn}>
-              <Pressy
-                onPress={() => setSel(p.id)}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: on }}
-                style={[styles.plan, on && [styles.planOn, SHADOW_SM]]}
-                scaleTo={0.985}
-              >
-                <View style={[styles.radio, on && styles.radioOn]}>{on ? <View style={styles.radioDot} /> : null}</View>
-                <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <T v="h2">{p.period === 'year' ? t('pwYearly') : t('pwMonthly')}</T>
-                    {p.period === 'year' && (
-                      <View style={styles.badge}>
-                        <T v="small" style={{ fontSize: 11 }}>
-                          {t('pwBest')}
-                          {monthly ? ` · ${t('pwSave', { n: savingsPercent(p, monthly) })}` : ''}
-                        </T>
-                      </View>
-                    )}
-                  </View>
-                  <T v="small" color={INK_SOFT} testID={`plan-${p.period}-terms`}>
-                    {p.trial ? t('pwTrial', { n: trialWord(p), price: p.displayPrice, period: periodWord(p) }) : t('pwNoTrial', { price: p.displayPrice, period: periodWord(p) })}
-                  </T>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <T v="h2">{t('pwPerDay', { p: perDay(p, locale) })}</T>
-                  {p.period === 'year' && monthly ? (
-                    <T v="small" color={INK_SOFT}>
-                      {monthly.displayPrice}/{t('month')} → {perDay(p, locale)}
-                    </T>
-                  ) : null}
-                </View>
-              </Pressy>
-            </Animated.View>
-          );
-        })}
+        {ordered.length > 0 && (
+          <T v="small" color={INK_SOFT} style={styles.center}>
+            {t('pwChoose')}
+          </T>
+        )}
+        {ordered.map((p) => (
+          <Pressy
+            key={p.id}
+            onPress={() => void purchase(p)}
+            disabled={!!busy || thanks}
+            accessibilityRole="button"
+            style={[styles.plan, SHADOW_SM, busy && busy !== p.id && { opacity: 0.6 }]}
+            scaleTo={0.985}
+            testID={`plan-${p.period}`}
+          >
+            <T v="h2">{p.period === 'year' ? t('pwYearly') : t('pwMonthly')}</T>
+            <T v="h2" testID={`plan-${p.period}-price`}>
+              {busy === p.id ? '…' : t('pwPer', { price: p.displayPrice, period: periodWord(p) })}
+            </T>
+          </Pressy>
+        ))}
       </View>
+      <View style={{ height: 8 }} />
     </Sheet>
   );
 }
@@ -201,12 +218,10 @@ const styles = StyleSheet.create({
   center: { textAlign: 'center' },
   feature: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   tick: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  plan: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 22, backgroundColor: INK_HAIR },
-  planOn: { backgroundColor: SURFACE },
-  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: 'rgba(43,35,80,0.25)', alignItems: 'center', justifyContent: 'center' },
-  radioOn: { borderColor: INK },
-  radioDot: { width: 11, height: 11, borderRadius: 6, backgroundColor: INK },
-  badge: { backgroundColor: `${MACRO.carbs}55`, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  plan: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 18, borderRadius: 22, backgroundColor: SURFACE },
   unavailable: { padding: 18, borderRadius: 20, backgroundColor: INK_FAINT },
   links: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, paddingHorizontal: 4 },
+  couponRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  couponInput: { flex: 1, height: 46, borderRadius: 14, backgroundColor: INK_HAIR, paddingHorizontal: 14, fontFamily: FONT.displayMedium, fontSize: 16, color: INK },
+  couponBtn: { height: 46, paddingHorizontal: 16, borderRadius: 14, backgroundColor: SURFACE, alignItems: 'center', justifyContent: 'center' },
 });

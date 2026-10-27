@@ -18,6 +18,8 @@ export interface State {
   isPro: boolean;
   /** Store receipt the gateway verifies (iOS JWS / Play purchase token). */
   proToken?: string;
+  /** Pro from a coupon code: the last day it covers (the gateway keeps the same date). */
+  proUntil?: string;
   installId: string;
   /** First day the app was used: the day pager's reach and the start of the free days. */
   firstDay?: string;
@@ -166,6 +168,7 @@ export async function eraseAll() {
     totalSnaps: 0,
       seen: { scroll: false, notes: false },
     isPro: state.isPro, // a subscription belongs to the Apple/Google account, not this data
+    proUntil: state.proUntil,
     installId,
     firstDay: dayKey(new Date()),
   };

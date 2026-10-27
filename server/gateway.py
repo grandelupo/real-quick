@@ -75,7 +75,7 @@ DEV_ALLOW_UNSIGNED = os.environ.get("DEV_ALLOW_UNSIGNED") == "1"
 MAX_BODY = 4 * 1024 * 1024
 TIMEOUT = 40
 
-ERROR_CODES = ("daily_limit", "trial_over", "bad_request", "unauthorized", "upstream", "rate_limited")
+ERROR_CODES = ("daily_limit", "trial_over", "bad_request", "unauthorized", "upstream", "rate_limited", "bad_coupon")
 
 # ---------------------------------------------------------------- prompt ---
 
@@ -461,6 +461,26 @@ class JsonStore:
 
 INSTALLS = JsonStore(STATE_FILE.with_name("installs.json"))
 SHARES = JsonStore(STATE_FILE.with_name("shares.json"))
+# Coupons: install id → last day it counts as Pro. Codes come from the
+# environment, COUPON_CODES="RQ-ABCD-EFGH=366,OTHER=30" (days of Pro each).
+COUPONS = JsonStore(STATE_FILE.with_name("coupons.json"))
+COUPON_ATTEMPTS_PER_IP = 20
+
+
+def _coupon_codes() -> dict:
+    out = {}
+    for part in os.environ.get("COUPON_CODES", "").split(","):
+        if "=" in part:
+            code, days = part.split("=", 1)
+            if code.strip() and days.strip().isdigit():
+                out[code.strip().upper()] = int(days)
+    return out
+
+
+def coupon_until(install: str) -> str:
+    """The last day this install's coupon covers, '' when it has none."""
+    with COUPONS.lock:
+        return COUPONS.data.get(install, "")
 
 
 def trial_day(install: str, day: str) -> int:
@@ -517,6 +537,8 @@ def handle_analyze(headers, raw: bytes, ip: str) -> tuple[int, dict]:
     sub = subscriber_for(platform, headers.get("X-Purchase-Token", ""))
     if sub:
         limits = [(f"sub:{sub}", PRO_PER_DAY)]
+    elif coupon_until(install) >= day:
+        limits = [(f"inst:{install}", PRO_PER_DAY)]
     else:
         if trial_day(install, day) >= TRIAL_DAYS:
             raise GatewayError("trial_over", 402, "free days over")
@@ -539,6 +561,35 @@ def handle_analyze(headers, raw: bytes, ip: str) -> tuple[int, dict]:
     if not result["items"]:
         QUOTA.give_back([k for k, _ in limits], day)
     return 200, {"title": result.get("title", ""), "items": result["items"][:12]}
+
+
+def handle_coupon(headers, raw: bytes, ip: str) -> tuple[int, dict]:
+    """Redeem a coupon code for this install: Pro for the code's number of days."""
+    install = headers.get("X-Install-Id", "")
+    if not INSTALL_RE.fullmatch(install):
+        raise GatewayError("unauthorized", 401, "install id missing")
+    try:
+        body = json.loads(raw)
+    except ValueError as e:
+        raise GatewayError("bad_request", 400, "json") from e
+    code = body.get("code") if isinstance(body, dict) else None
+    tz = body.get("tz") if isinstance(body, dict) and isinstance(body.get("tz"), str) else "+00:00"
+    if not isinstance(code, str) or not (3 <= len(code.strip()) <= 40):
+        raise GatewayError("bad_request", 400, "code missing")
+    today = local_day(tz)
+    if not QUOTA.take([(f"coupon:{ip}", COUPON_ATTEMPTS_PER_IP)], today):
+        raise GatewayError("rate_limited", 429, "too many coupon attempts")
+    days = _coupon_codes().get(code.strip().upper())
+    if not days:
+        raise GatewayError("bad_coupon", 404, "unknown code")
+    until = (datetime.strptime(today, "%Y-%m-%d") + timedelta(days=days)).strftime("%Y-%m-%d")
+    with COUPONS.lock:
+        if COUPONS.data.get(install, "") < until:
+            COUPONS.data[install] = until
+            COUPONS.save()
+        else:
+            until = COUPONS.data[install]
+    return 200, {"until": until}
 
 
 # ------------------------------------------------------------------ share ---
@@ -748,6 +799,10 @@ class Handler(BaseHTTPRequestHandler):
             elif self.path == "/v1/share":
                 status, payload = handle_share_put(self.headers, self._body())
                 log.info("share updated")
+            elif self.path == "/v1/coupon":
+                ip = self.headers.get("X-Forwarded-For", self.client_address[0]).split(",")[0].strip()
+                status, payload = handle_coupon(self.headers, self._body(), ip)
+                log.info("coupon redeemed until=%s", payload.get("until"))
             else:
                 raise GatewayError("bad_request", 404, "no such path")
             self._send(status, payload)

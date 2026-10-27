@@ -28,7 +28,9 @@ see `marketing/brand.md` and `CLAUDE.md`).
   (photo thumbnails survive app updates), 9 (the snap button no longer
   shrinks to an icon), 10 (daily mascot intro in the ring; smooth clay
   forest), 11 (trees with real branches and leaves, swipe up turns the
-  globe away, swipes no longer misread their direction) uploaded with `xcodebuild archive` + `-exportArchive`
+  globe away, swipes no longer misread their direction), 12 (plain
+  paywall with a coupon field, month view from the date, rubber band at
+  the first and last day) uploaded with `xcodebuild archive` + `-exportArchive`
   (`app/ios/build/ship/export.plist`); the archive signs through the Xcode
   account, team H85T7F9AS6, the upload uses the ASC API key (see
   `CLAUDE.md`). Both targets carry the App Group.
@@ -40,7 +42,7 @@ see `marketing/brand.md` and `CLAUDE.md`).
    then check: a typed meal through `/v1/analyze` returns items.
 2. **App Privacy** answers in App Store Connect — not in the API. Fill from
    `marketing/appstore/app-privacy.md`.
-3. Build 11 is attached to 1.0; submit with
+3. Build 12 is attached to 1.0; submit with
    `app-builder/.venv/bin/python app-builder/asc.py submit com.latovi.realquick`.
 
 ## Then

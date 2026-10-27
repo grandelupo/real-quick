@@ -73,3 +73,11 @@ python3 -m unittest test_gateway -v   # 15 tests: quota, refunds, validation, JW
   titles, never photos) under a random token and answers `{token, url}`;
   `GET /s/<token>` renders it as a live page, `DELETE /v1/share` removes it.
   Stored in `shares.json`. Caddy routes `/s/*` here (deploy/Caddyfile.snippet).
+
+## Coupons
+
+`COUPON_CODES="CODE=days,..."` in `/etc/realquick/gateway.env`. The app's
+paywall has "Have a coupon code?"; `POST /v1/coupon {code}` with the install
+id stores the install's last Pro day in `coupons.json` and `/v1/analyze`
+treats it like a subscriber until then. A code never shortens an existing
+coupon; 20 attempts per IP per day. Restart the service after changing codes.

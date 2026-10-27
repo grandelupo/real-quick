@@ -17,6 +17,7 @@ import { EditSheet } from '../components/EditSheet';
 import { SettingsSheet } from '../components/SettingsSheet';
 import { Paywall } from '../components/Paywall';
 import { ShareSheet } from '../components/ShareSheet';
+import { MonthSheet } from '../components/MonthSheet';
 import { Toast, useToast } from '../components/Toast';
 import { CogIcon, NotesIcon, ShareIcon } from '../ui/Icons';
 import { EASE_OUT, TIMING } from '../ui/motion';
@@ -53,6 +54,8 @@ const COMMIT_AT = 0.25;
 const FLICK = 400;
 /** How far the finger must move before the swipe's direction is trusted. */
 const DECIDE_AT = 12;
+/** The most the page gives at the first or last day, in points. */
+const RUBBER = 72;
 
 export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   const { width, height } = useWindowDimensions();
@@ -78,10 +81,11 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(!!showPaywallOnMount);
   const [shareOpen, setShareOpen] = useState(false);
+  const [monthOpen, setMonthOpen] = useState(false);
   const [editing, setEditing] = useState<Entry | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
-  const sheetsOpen = settingsOpen || paywallOpen || editOpen || shareOpen;
+  const sheetsOpen = settingsOpen || paywallOpen || editOpen || shareOpen || monthOpen;
   // The free window: 3 days from first launch, then every count needs Pro.
   const daysLeft = freeDaysLeft(firstDay, today);
   const locked = !isPro && daysLeft === 0;
@@ -117,6 +121,10 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   const pendingDir = useSharedValue<0 | 1 | -1>(0);
   /** Velocity of a swipe that ended before its beginRoll() landed (a quick flick). */
   const flick = useSharedValue(0);
+  // At either end of the days there is nothing to roll to: the page gives a
+  // little under the finger, less and less, and settles back on release.
+  const edge = useSharedValue<0 | 1 | -1>(0);
+  const over = useSharedValue(0);
   // After a commit the new day is already `index` while `target` still points
   // at it: that one render shows the new page plainly, then the roll resets.
   const settling = target !== null && target.index === index;
@@ -137,7 +145,11 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
       flick.value = 0;
       if (rollTarget.value) return;
       const next = index + dir;
-      if (next < 0 || next >= pages.length) return;
+      if (next < 0 || next >= pages.length) {
+        edge.value = dir;
+        return;
+      }
+      edge.value = 0;
       const day = pages[next];
       const st = dayState(day);
       forest.current?.beginRoll(dir, weekdayIndex(day), st.growth, st.over);
@@ -152,7 +164,7 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [index, pages, dayState, rollTarget, pendingDir, flick, roll],
+    [index, pages, dayState, rollTarget, pendingDir, flick, roll, edge],
   );
   const finishRoll = useCallback(
     (commit: boolean) => {
@@ -202,6 +214,11 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
       const dist = Math.abs(e.translationY);
       const tg = rollTarget.value;
       if (!tg) {
+        if (edge.value === dir) {
+          // nothing further this way: give a little, less the further the finger goes
+          over.value = -dir * RUBBER * (1 - 1 / ((dist * 0.55) / RUBBER + 1));
+          return;
+        }
         // the first events of a drag can carry a tiny translation with the
         // wrong sign: wait for a clear move, then ask JS for the day that way, once
         if (dist < DECIDE_AT || pendingDir.value === dir) return;
@@ -223,6 +240,12 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
     .onEnd((e) => {
       const tg = rollTarget.value;
       if (!tg) {
+        if (edge.value !== 0) {
+          edge.value = 0;
+          pendingDir.value = 0;
+          over.value = withTiming(0, { duration: 340, easing: EASE_OUT });
+          return;
+        }
         // beginRoll() is still on its way: let it finish the swipe when it lands
         if (pendingDir.value !== 0) flick.value = e.velocityY || 1;
         return;
@@ -298,8 +321,9 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   const dirSign = target?.dir ?? 1;
   const currentStyle = useAnimatedStyle(() => ({
     opacity: interpolate(roll.value, [0, 0.42], [1, 0], 'clamp'),
-    transform: [{ translateY: roll.value * -24 * dirSign }],
+    transform: [{ translateY: roll.value * -24 * dirSign + over.value }],
   }));
+  const forestStyle = useAnimatedStyle(() => ({ transform: [{ translateY: over.value * 0.35 }] }));
   const targetStyle = useAnimatedStyle(() => ({
     opacity: interpolate(roll.value, [0.58, 1], [0, 1], 'clamp'),
     transform: [{ translateY: (1 - roll.value) * 24 * dirSign }],
@@ -357,7 +381,11 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
           ))}
 
           {/* the forest and the macro chips sit over the pages, under the notes */}
-          <Forest ref={forest} width={width} height={forestH} weekday={weekdayIndex(viewing)} growth={current.growth} over={current.over} night={night} active={appActive} roll={roll} />
+          <Animated.View style={[styles.forestWrap, { height: forestH }, forestStyle]} pointerEvents="none">
+            <Forest ref={forest} width={width} height={forestH} weekday={weekdayIndex(viewing)} growth={current.growth} over={current.over} night={night} active={appActive} roll={roll} />
+          </Animated.View>
+          {/* the date is a door to the month */}
+          <Pressy style={[styles.dateHit, { top: insets.top + 8 }]} onPress={() => setMonthOpen(true)} hapticKind="light" scaleTo={1} accessibilityLabel={t('calendar')} testID="date-button" />
           <Animated.View style={[styles.strip, { bottom: stripBottom }, barStyle]} pointerEvents="none">
             <MacroStrip totals={current.totals} targets={targets} night={night} />
           </Animated.View>
@@ -447,6 +475,23 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
       />
       <Paywall visible={paywallOpen} onClose={() => setPaywallOpen(false)} />
       <ShareSheet visible={shareOpen} onClose={() => setShareOpen(false)} onToast={(text) => toast.show({ text })} />
+      <MonthSheet
+        visible={monthOpen}
+        onClose={() => setMonthOpen(false)}
+        viewing={viewing}
+        today={today}
+        firstDay={firstDay ?? today}
+        entries={entries}
+        settings={settings}
+        onPick={(day) => {
+          setMonthOpen(false);
+          const i = pages.indexOf(day);
+          if (i >= 0 && i !== index) {
+            finishRoll(false);
+            setIndex(i);
+          }
+        }}
+      />
     </View>
   );
 }
@@ -455,6 +500,8 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: INK },
   topRight: { position: 'absolute', right: 16, flexDirection: 'row', gap: 10 },
   strip: { position: 'absolute', left: 0, right: 0 },
+  forestWrap: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  dateHit: { position: 'absolute', left: 16, width: 250, height: 48 },
   roundBtn: {
     width: 44,
     height: 44,

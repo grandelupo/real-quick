@@ -119,6 +119,13 @@ verified on a real device or via EAS.
 - Money: the app is free for `TRIAL_DAYS` (3) from first launch, then every
   count needs Pro — the gateway enforces it per install (`trial_over`), the
   app gates snap/typing on `freeDaysLeft()`. No store intro offer, on purpose.
+  The paywall is plain: two plan buttons with price per period, one renewal
+  sentence, Restore/Terms/Privacy — no per-day prices, badges or savings
+  (BLUEPRINT §3/§4). "Have a coupon code?" at its foot redeems a code with the
+  gateway (`POST /v1/coupon`); codes live only in `COUPON_CODES` in
+  `/etc/realquick/gateway.env` (Karol's own year-long code is noted in
+  `~/src/_env/realquick/coupon.txt`), the gateway then treats the install as
+  Pro until the stored date and the app keeps `proUntil`.
 - The forest is one GL scene owned by Home (`src/forest/Forest.tsx`); day
   pages only draw the gradient, ring and hero. Keep it procedural (no model
   files): trees are grown from a `TreeSpec` (branch levels, whorls, spread)

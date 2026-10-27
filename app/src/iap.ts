@@ -1,6 +1,7 @@
 import { Linking, Platform } from 'react-native';
 import * as IAP from 'expo-iap';
 import type { Product, ProductSubscription, Purchase } from 'expo-iap';
+import { dayKey } from './engine';
 import { getState, setState } from './store';
 
 // StoreKit 2 / Play Billing through expo-iap. One subscription group "Pro",
@@ -65,6 +66,12 @@ async function onPurchase(purchase: Purchase) {
   }
 }
 
+/** Pro granted by a coupon code, while its last day has not passed. */
+export function couponActive(): boolean {
+  const until = getState().proUntil;
+  return !!until && until >= dayKey(new Date());
+}
+
 let purchaseWaiter: ((ok: boolean) => void) | null = null;
 
 export async function initIap() {
@@ -95,6 +102,7 @@ export async function refreshEntitlement() {
     const subs = await IAP.getActiveSubscriptions([SKU.monthly, SKU.yearly]);
     const active = subs.find((s) => s.productId === SKU.monthly || s.productId === SKU.yearly);
     if (active) setState({ isPro: true, proToken: active.purchaseToken ?? getState().proToken });
+    else if (couponActive()) setState({ isPro: true, proToken: undefined });
     else if (getState().isPro) setState({ isPro: false, proToken: undefined });
   } catch {
     // offline: keep whatever we knew

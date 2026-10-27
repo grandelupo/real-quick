@@ -13,7 +13,7 @@ export const GATEWAY_URL: string =
   'https://realquick.lab.karolkrakowski.pl';
 
 /** Wire codes — must equal the gateway's `error.code` values (server/test_gateway.py pins them). */
-export type ApiErrorCode = 'daily_limit' | 'trial_over' | 'bad_request' | 'unauthorized' | 'upstream' | 'rate_limited' | 'network';
+export type ApiErrorCode = 'daily_limit' | 'trial_over' | 'bad_request' | 'unauthorized' | 'upstream' | 'rate_limited' | 'network' | 'bad_coupon';
 
 export class ApiError extends Error {
   constructor(public code: ApiErrorCode, message?: string) {
@@ -21,7 +21,7 @@ export class ApiError extends Error {
   }
 }
 
-const KNOWN: ApiErrorCode[] = ['daily_limit', 'trial_over', 'bad_request', 'unauthorized', 'upstream', 'rate_limited'];
+const KNOWN: ApiErrorCode[] = ['daily_limit', 'trial_over', 'bad_request', 'unauthorized', 'upstream', 'rate_limited', 'bad_coupon'];
 
 function tzOffset(): string {
   const m = -new Date().getTimezoneOffset();
@@ -118,4 +118,34 @@ export async function putShare(payload: SharePayload): Promise<{ token: string; 
 
 export async function deleteShare(): Promise<void> {
   await call('/v1/share', 'DELETE');
+}
+
+// ---------------------------------------------------------------- coupons --
+
+/** Redeems a coupon code for this install; resolves to the last day it covers. */
+export async function redeemCoupon(code: string): Promise<string> {
+  const s = getState();
+  let res: Response;
+  try {
+    res = await fetch(`${GATEWAY_URL}/v1/coupon`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Install-Id': s.installId, 'X-Platform': Platform.OS },
+      body: JSON.stringify({ code: code.trim(), tz: tzOffset() }),
+    });
+  } catch {
+    throw new ApiError('network');
+  }
+  type CouponReply = { until?: string; error?: { code?: string } };
+  let json: CouponReply | null = null;
+  try {
+    json = (await res.json()) as CouponReply;
+  } catch {
+    json = null;
+  }
+  if (!res.ok) {
+    const c = json?.error?.code as ApiErrorCode | undefined;
+    throw new ApiError(c && KNOWN.includes(c) ? c : res.status >= 500 ? 'upstream' : 'bad_request');
+  }
+  if (!json?.until) throw new ApiError('upstream');
+  return json.until;
 }
