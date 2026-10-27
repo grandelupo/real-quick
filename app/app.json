@@ -39,7 +39,7 @@
     },
     "android": {
       "package": "com.latovi.realquick",
-      "versionCode": 2,
+      "versionCode": 3,
       "permissions": [
         "android.permission.CAMERA"
       ],
