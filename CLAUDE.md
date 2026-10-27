@@ -89,10 +89,14 @@ through the Xcode account.
   `full-*.txt`; push it with `play.py listing set com.latovi.realquick --spec
   marketing/play/listing.json`. `eas submit -p android` uses the same key
   through `app/eas.json`.
-- Karol builds and uploads the **first** AAB himself in the console (Google
-  needs one manual upload before the API accepts releases). After that:
-  build (`eas build -p android --profile production` or a local
-  `gradlew bundleRelease` after prebuild), then `play.py upload`.
+- Karol uploaded the first AAB himself (Google needs one manual upload
+  before the API accepts releases). Since then: bump `expo.android.versionCode`,
+  commit, `npx eas-cli@latest build --platform android --profile production
+  --non-interactive --no-wait --json` (this Mac's EAS session is Karol's
+  `latovi` account; the upload keystore lives on EAS, so a local Gradle build
+  would not match Play App Signing), poll `eas-cli build:list --json` for
+  FINISHED, `curl` the `artifacts.buildUrl`, then `play.py upload … --track
+  internal`. ~17 min per build.
 - Console-only, Karol's part: app record, content rating, Data safety
   (answers in `marketing/play/listing.md`), target audience, countries and
   pricing, the two subscriptions (`com.latovi.realquick.pro.monthly`,
