@@ -11,8 +11,8 @@ Package `com.latovi.realquick` · Category **Health & Fitness** · Contact
 | App name | `Real Quick – Calorie Tracker` | 28/30 |
 | Short description | `Snap your food, see calories & macros. The fastest, simplest calorie tracker.` | 77/80 |
 
-Full description: reuse the App Store description from
-`marketing/appstore/listing.md`, replacing the subscription paragraph with:
+Full description: `full-en-US.txt` — the App Store description with the
+Apple subscription paragraph replaced by:
 
 ```
 Payment is charged to your Google Play account at confirmation of purchase. Subscriptions renew automatically unless cancelled before the renewal date in Google Play ▸ Profile ▸ Payments & subscriptions ▸ Subscriptions.
@@ -53,6 +53,20 @@ no violence, sexuality, language, controlled substances, gambling, UGC
 sharing or location → **Everyone / PEGI 3**.
 
 Target audience: 13+ (not designed for children).
+
+## Pushing it
+
+Everything on this page that the Play Developer API accepts lives in
+`listing.json` (titles, short descriptions, `full-en-US.txt` /
+`full-ja-JP.txt`, icon, feature graphic, screenshot folders) and goes up
+with
+
+```
+app-builder/.venv/bin/python app-builder/play.py listing set com.latovi.realquick --spec marketing/play/listing.json
+```
+
+The forms below it (subscriptions, Data safety, content rating, target
+audience) are console-only.
 
 ## Graphics
 

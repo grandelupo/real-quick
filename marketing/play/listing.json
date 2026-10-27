@@ -1,0 +1,23 @@
+{
+  "defaultLanguage": "en-US",
+  "contactEmail": "karol@karolkrakowski.pl",
+  "contactWebsite": "https://karolkrakowski.pl/apps/real-quick/support.htm",
+  "locales": {
+    "en-US": {
+      "title": "Real Quick – Calorie Tracker",
+      "shortDescription": "Snap your food, see calories & macros. The fastest, simplest calorie tracker.",
+      "fullDescription": "full-en-US.txt",
+      "icon": "out/graphics/icon-512.png",
+      "featureGraphic": "out/graphics/feature-1024x500.png",
+      "phoneScreenshots": "out/en-US"
+    },
+    "ja-JP": {
+      "title": "Real Quick – カロリー計算",
+      "shortDescription": "写真を撮るだけでカロリーとPFCを記録。いちばん速くて簡単なカロリー計算。",
+      "fullDescription": "full-ja-JP.txt",
+      "icon": "out/graphics/icon-512.png",
+      "featureGraphic": "out/graphics/feature-1024x500.png",
+      "phoneScreenshots": "out/ja"
+    }
+  }
+}

@@ -75,6 +75,31 @@ pass `-allowProvisioningUpdates -authenticationKeyPath <ASC_KEY_PATH>
 from `app-builder/.env` to `-exportArchive`. The archive itself still signs
 through the Xcode account.
 
+## Google Play
+
+- Access: service account `claude@gen-lang-client-0618281966.iam.gserviceaccount.com`
+  (Cloud project `gen-lang-client-0618281966`, invited in Play Console with
+  release + store-presence permissions, no admin). Its JSON key is
+  `~/src/_env/play/service-account.json`, registered in `app-builder/.env` as
+  `PLAY_SERVICE_ACCOUNT`. Never copy it anywhere.
+- Tooling: `app-builder/.venv/bin/python app-builder/play.py …` — `status`,
+  `upload --aab … --track internal|closed|production [--rollout]`, `promote`,
+  `listing get|set`, `raw`. The store listing (both locales, texts, icon,
+  feature graphic, screenshots) is `marketing/play/listing.json` + the two
+  `full-*.txt`; push it with `play.py listing set com.latovi.realquick --spec
+  marketing/play/listing.json`. `eas submit -p android` uses the same key
+  through `app/eas.json`.
+- Karol builds and uploads the **first** AAB himself in the console (Google
+  needs one manual upload before the API accepts releases). After that:
+  build (`eas build -p android --profile production` or a local
+  `gradlew bundleRelease` after prebuild), then `play.py upload`.
+- Console-only, Karol's part: app record, content rating, Data safety
+  (answers in `marketing/play/listing.md`), target audience, countries and
+  pricing, the two subscriptions (`com.latovi.realquick.pro.monthly`,
+  `.yearly`, prices in `listing.md`), Play App Signing.
+- Android `versionCode` comes from `app.json` → `expo.android.versionCode`;
+  bump it with every upload like the iOS build number.
+
 Simulators: use the single existing iOS simulator ("Upbell Capture"); never
 create simulators or Android emulators (see app-builder/CLAUDE.md). Android is
 verified on a real device or via EAS.
