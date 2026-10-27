@@ -103,6 +103,10 @@ through the Xcode account.
   `.yearly`, prices in `listing.md`), Play App Signing.
 - Android `versionCode` comes from `app.json` → `expo.android.versionCode`;
   bump it with every upload like the iOS build number.
+- `android.blockedPermissions` in `app.json` strips what the modules declare
+  but the app never uses: RECORD_AUDIO (expo-camera), ACTIVITY_RECOGNITION
+  (expo-sensors' pedometer — Play's health-app policy would otherwise apply),
+  the legacy external-storage pair (expo-file-system). Keep it that way.
 
 Simulators: use the single existing iOS simulator ("Upbell Capture"); never
 create simulators or Android emulators (see app-builder/CLAUDE.md). Android is
