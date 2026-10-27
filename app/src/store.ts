@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
-import { BIAS_MULTIPLIER, DEFAULT_SETTINGS, dayKey, type Entry, type EntrySource, type FoodItem, type Settings } from './engine';
+import { BIAS_MULTIPLIER, DEFAULT_SETTINGS, dayKey, isNight, type Entry, type EntrySource, type FoodItem, type Settings } from './engine';
 
 // One small observable store, persisted as a single JSON blob. Everything
 // the user owns lives here, on the phone — there are no accounts.
@@ -27,6 +27,9 @@ export interface State {
   share?: { token: string; url: string };
   /** The last day the mascot intro played; it plays once per day. */
   introDay?: string;
+  /** Entries added after dark while the night look is off; at 5 the app offers it once. */
+  nightSnaps: number;
+  nightOffered: boolean;
 }
 
 const KEY = 'realquick.v1';
@@ -40,6 +43,8 @@ let state: State = {
   seen: { scroll: false, notes: false },
   isPro: false,
   installId: '',
+  nightSnaps: 0,
+  nightOffered: false,
 };
 
 const listeners = new Set<() => void>();
@@ -135,6 +140,7 @@ export function addEntry(input: { source: EntrySource; photoUri?: string; text?:
   setState((s) => ({
     entries: [...s.entries, entry],
     totalSnaps: input.source === 'text' ? s.totalSnaps : s.totalSnaps + 1,
+    nightSnaps: !s.settings.nightLook && isNight(at) ? (s.nightSnaps ?? 0) + 1 : s.nightSnaps ?? 0,
   }));
   return entry;
 }
@@ -169,6 +175,8 @@ export async function eraseAll() {
       seen: { scroll: false, notes: false },
     isPro: state.isPro, // a subscription belongs to the Apple/Google account, not this data
     proUntil: state.proUntil,
+    nightSnaps: 0,
+    nightOffered: false,
     installId,
     firstDay: dayKey(new Date()),
   };

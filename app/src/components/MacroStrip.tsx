@@ -6,6 +6,7 @@ import { n } from '../i18n';
 import { INK_HAIR, INK_SOFT, MACRO, SHADOW_SM, SURFACE } from '../theme';
 import { EASE_OUT } from '../ui/motion';
 import { T } from '../ui/kit';
+import { usePageColors } from '../ui/night';
 import { useCountUp } from './DayPage';
 
 // Three small chips above the capture bar: protein, carbs, fat against their
@@ -18,22 +19,23 @@ function Chip({ label, value, target, color, night }: { label: string; value: nu
     w.value = withTiming(k, { duration: 700, easing: EASE_OUT });
   }, [k, w]);
   const shown = useCountUp(value);
+  const c = usePageColors();
   const fill = useAnimatedStyle(() => ({ width: `${w.value * 100}%` }));
   return (
-    <View style={[styles.chip, SHADOW_SM, { backgroundColor: night ? SURFACE : 'rgba(255,255,255,0.9)' }]}>
+    <View style={[styles.chip, SHADOW_SM, { backgroundColor: night ? c.surface : 'rgba(255,255,255,0.9)' }]}>
       <View style={styles.top}>
         <View style={[styles.dot, { backgroundColor: color }]} />
-        <T v="small" color={INK_SOFT} numberOfLines={1} style={{ flex: 1 }}>
+        <T v="small" color={c.inkSoft} numberOfLines={1} style={{ flex: 1 }}>
           {label}
         </T>
       </View>
       <T v="label" style={{ marginTop: 1 }}>
         {n(shown)}
-        <T v="small" color={INK_SOFT}>
+        <T v="small" color={c.inkSoft}>
           {' '}/ {n(target)}g
         </T>
       </T>
-      <View style={styles.track}>
+      <View style={[styles.track, { backgroundColor: c.hair }]}>
         <Animated.View style={[styles.fill, { backgroundColor: color }, fill]} />
       </View>
     </View>

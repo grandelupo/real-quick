@@ -6,8 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { addDays, dayKey, dayPages, dayTotals, freeDaysLeft, isNight, macroTargets, msUntilLookChange, weekdayIndex, type Entry } from '../engine';
 import { dayLabel, t } from '../i18n';
-import { entriesFor, markSeen, setState, useStore } from '../store';
-import { DAYS, INK, NIGHT_BG, SHADOW_SM, SURFACE } from '../theme';
+import { entriesFor, markSeen, setSettings, setState, useStore } from '../store';
+import { DAYS, INK, NIGHT, NIGHT_BG, SHADOW_SM, SURFACE } from '../theme';
 import { DayPage } from '../components/DayPage';
 import { MacroStrip } from '../components/MacroStrip';
 import { Forest, type ForestHandle } from '../forest/Forest';
@@ -22,6 +22,9 @@ import { Toast, useToast } from '../components/Toast';
 import { CogIcon, NotesIcon, ShareIcon } from '../ui/Icons';
 import { EASE_OUT, TIMING } from '../ui/motion';
 import { Pressy, T, haptic } from '../ui/kit';
+import { NightContext } from '../ui/night';
+import { Button } from '../ui/controls';
+import { Sheet } from '../components/Sheet';
 
 /** Ticks at midnight and at the day/night boundaries so the look follows the clock. */
 function useClock() {
@@ -67,6 +70,8 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   const seen = useStore((s) => s.seen);
   const isPro = useStore((s) => s.isPro);
   const introDay = useStore((s) => s.introDay);
+  const nightSnaps = useStore((s) => s.nightSnaps);
+  const nightOffered = useStore((s) => s.nightOffered);
 
   const today = dayKey(now);
   // The mascot plays once a day, on the first page of the day.
@@ -86,9 +91,17 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   const [editOpen, setEditOpen] = useState(false);
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
   const sheetsOpen = settingsOpen || paywallOpen || editOpen || shareOpen || monthOpen;
+  // After five entries added after dark with the night look off, offer it once.
+  const nightOffer = !nightOffered && !settings.nightLook && (nightSnaps ?? 0) >= 5 && !sheetsOpen;
+  const acceptNight = useCallback(() => {
+    setSettings({ nightLook: true });
+    setState({ nightOffered: true });
+  }, []);
+  const declineNight = useCallback(() => setState({ nightOffered: true }), []);
   // The free window: 3 days from first launch, then every count needs Pro.
   const daysLeft = freeDaysLeft(firstDay, today);
   const locked = !isPro && daysLeft === 0;
+  const pc = night ? { ink: NIGHT.ink, surface: NIGHT.surface } : { ink: INK, surface: SURFACE };
   const trialNote = isPro ? undefined : daysLeft === 0 ? t('trialOver') : daysLeft === 1 ? t('trialLastDay') : t('trialDaysLeft', { n: daysLeft });
 
   const capture = useRef<CaptureHandle>(null);
@@ -333,10 +346,10 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   const barBottom = Math.max(insets.bottom, 12);
   // The forest band: from the bottom edge up to a bit under the ring. The
   // macro chips and the capture bar float over its foreground.
-  const forestH = Math.round(height * 0.5);
+  const forestH = Math.round(height * 0.6);
   const stripBottom = barBottom + BAR_HEIGHT + 12;
   // the page keeps clear of the tree tops, not of the whole band
-  const bottomReserve = forestH - 60;
+  const bottomReserve = Math.round(height * 0.5) - 60;
   const current = dayState(viewing);
   const targets = useMemo(() => macroTargets(settings.goalKcal), [settings.goalKcal]);
   const targetDay = target ? pages[target.index] : null;
@@ -370,7 +383,8 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
 
   return (
     <View style={[styles.root, { backgroundColor: night ? NIGHT_BG : DAYS[weekdayIndex(viewing)].bg }]}>
-      <StatusBar style="dark" />
+      <NightContext.Provider value={night}>
+      <StatusBar style={night ? 'light' : 'dark'} />
       <GestureDetector gesture={gestures}>
         <View style={StyleSheet.absoluteFill}>
           {/* one layer per day in play, keyed by day so a page keeps its tree when it becomes the current one */}
@@ -392,11 +406,11 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
 
           {/* food-list tab on the right edge: a visible door for the swipe */}
           <Animated.View style={[styles.tab, { top: height * 0.42 }, tabStyle]}>
-            <Pressy onPress={() => setOpen(true)} style={[styles.tabBtn, SHADOW_SM]} accessibilityLabel={t('notesHint')} testID="notes-tab">
-              <NotesIcon size={22} />
+            <Pressy onPress={() => setOpen(true)} style={[styles.tabBtn, SHADOW_SM, { backgroundColor: pc.surface }]} accessibilityLabel={t('notesHint')} testID="notes-tab">
+              <NotesIcon size={22} color={pc.ink} />
               {viewingEntries.length > 0 && (
-                <Animated.View entering={FadeIn} style={styles.badge}>
-                  <T v="small" style={{ fontSize: 11, lineHeight: 14 }} color={SURFACE}>
+                <Animated.View entering={FadeIn} style={[styles.badge, { backgroundColor: pc.ink }]}>
+                  <T v="small" style={{ fontSize: 11, lineHeight: 14 }} color={pc.surface}>
                     {viewingEntries.length}
                   </T>
                 </Animated.View>
@@ -434,11 +448,11 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
 
       {/* top-right: share + settings */}
       <Animated.View style={[styles.topRight, { top: insets.top + 8 }, chromeStyle]} pointerEvents={notesOpen ? 'none' : 'box-none'}>
-        <Pressy style={[styles.roundBtn, SHADOW_SM]} onPress={() => setShareOpen(true)} accessibilityLabel={t('share')} testID="share-button">
-          <ShareIcon size={21} />
+        <Pressy style={[styles.roundBtn, SHADOW_SM, { backgroundColor: pc.surface }]} onPress={() => setShareOpen(true)} accessibilityLabel={t('share')} testID="share-button">
+          <ShareIcon size={21} color={pc.ink} />
         </Pressy>
-        <Pressy style={[styles.roundBtn, SHADOW_SM]} onPress={() => setSettingsOpen(true)} accessibilityLabel={t('settings')} testID="settings-button">
-          <CogIcon size={23} />
+        <Pressy style={[styles.roundBtn, SHADOW_SM, { backgroundColor: pc.surface }]} onPress={() => setSettingsOpen(true)} accessibilityLabel={t('settings')} testID="settings-button">
+          <CogIcon size={23} color={pc.ink} />
         </Pressy>
       </Animated.View>
 
@@ -459,7 +473,9 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
         />
       </Animated.View>
       <Toast msg={toast.msg} bottom={stripBottom + 62} />
+      </NightContext.Provider>
 
+      {/* the sheets stay outside the night context: paper-white, like system sheets */}
       <EditSheet entry={editing} visible={editOpen} settings={settings} onClose={() => setEditOpen(false)} />
       <SettingsSheet
         visible={settingsOpen}
@@ -492,6 +508,17 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
           }
         }}
       />
+      <Sheet visible={nightOffer} onClose={declineNight} maxHeightRatio={0.6}>
+        <View style={{ gap: 10, paddingBottom: 8 }}>
+          <T v="title">{t('nightOfferTitle')}</T>
+          <T v="body" color={INK}>
+            {t('nightOfferBody')}
+          </T>
+          <View style={{ height: 8 }} />
+          <Button label={t('nightOfferYes')} onPress={acceptNight} />
+          <Button label={t('nightOfferNo')} kind="ghost" onPress={declineNight} />
+        </View>
+      </Sheet>
     </View>
   );
 }

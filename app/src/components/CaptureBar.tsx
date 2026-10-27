@@ -20,6 +20,7 @@ import { CameraIcon, CloseIcon } from '../ui/Icons';
 import { EASE_IN_OUT, EASE_OUT, TIMING_SLOW } from '../ui/motion';
 import { Pressy, T, haptic } from '../ui/kit';
 import { Hero } from '../art/Hero';
+import { usePageColors } from '../ui/night';
 
 // The bottom bar: a live mini camera preview next to one big button. Tap the
 // button and forget it — the photo is taken from the already-running preview
@@ -56,6 +57,7 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
   const pendingAuto = useRef<null | { fromWidget: boolean }>(null);
 
   const granted = perm?.granted === true;
+  const c = usePageColors();
 
   // --- geometry of the preview, small ↔ big -----------------------------
   const bottom = Math.max(insets.bottom, 12);
@@ -214,7 +216,7 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
           hapticKind="none"
           accessibilityLabel={t('snapA11y')}
           testID="snap-button"
-          style={[styles.button, styles.buttonBig, SHADOW, busy && { opacity: 0.85 }]}
+          style={[styles.button, styles.buttonBig, SHADOW, { backgroundColor: c.surface }, busy && { opacity: 0.85 }]}
         >
           <View style={styles.labelWrap}>
             <View style={styles.edge} pointerEvents="none" />
@@ -222,7 +224,7 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
               {t('ctaPrefix')}{' '}
             </T>
             <View style={styles.inlineIcon}>
-              <CameraIcon size={21} color={INK} stroke={2.3} />
+              <CameraIcon size={21} color={c.ink} stroke={2.3} />
             </View>
             <T v="button" style={styles.label}>
               {' '}{t('ctaSuffix')}

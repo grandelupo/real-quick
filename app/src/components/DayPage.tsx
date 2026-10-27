@@ -11,6 +11,7 @@ import { DAYS, INK_HAIR, INK_SOFT, MACRO, SHADOW, SHADOW_SM, SURFACE } from '../
 import { ChevronIcon } from '../ui/Icons';
 import { EASE_OUT } from '../ui/motion';
 import { T } from '../ui/kit';
+import { usePageColors } from '../ui/night';
 
 const ACircle = Animated.createAnimatedComponent(Circle);
 
@@ -89,6 +90,7 @@ export interface DayPageProps {
 
 export const DayPage = React.memo(function DayPage(p: DayPageProps) {
   const [intro, setIntro] = useState(!!p.intro);
+  const c = usePageColors();
   const wd = weekdayIndex(p.day);
   const pal = DAYS[wd];
   const totals = dayTotals(p.entries);
@@ -113,7 +115,7 @@ export const DayPage = React.memo(function DayPage(p: DayPageProps) {
           {p.label}
         </T>
         <View style={styles.middle}>
-          <View style={[styles.disc, SHADOW, { width: ringSize, height: ringSize, borderRadius: ringSize / 2, backgroundColor: p.night ? SURFACE : 'rgba(255,255,255,0.92)' }]}>
+          <View style={[styles.disc, SHADOW, { width: ringSize, height: ringSize, borderRadius: ringSize / 2, backgroundColor: p.night ? c.surface : 'rgba(255,255,255,0.92)' }]}>
             {intro ? (
               <MascotIntro
                 size={ringSize * 0.84}
@@ -125,38 +127,38 @@ export const DayPage = React.memo(function DayPage(p: DayPageProps) {
               />
             ) : (
               <>
-                <Ring id={`r${wd}`} size={ringSize} progress={goal > 0 ? kcal / goal : 0} color={over ? MACRO.protein : pal.ring} colorSoft={over ? '#FFB3A8' : pal.ringSoft} track={INK_HAIR} />
+                <Ring id={`r${wd}`} size={ringSize} progress={goal > 0 ? kcal / goal : 0} color={over ? MACRO.protein : pal.ring} colorSoft={over ? '#FFB3A8' : pal.ringSoft} track={c.hair} />
                 <Animated.View entering={p.intro ? FadeIn.duration(500) : undefined} style={[StyleSheet.absoluteFill, styles.center]}>
                   <T v="hero" style={{ fontSize: ringSize * 0.23, lineHeight: ringSize * 0.27 }} accessibilityLabel={`${n(kcal)} ${p.settings.unit}`}>
                     {n(shown)}
                   </T>
-                  <T v="small" color={INK_SOFT}>
+                  <T v="small" color={c.inkSoft}>
                     {t('of')} {n(goal)} {p.settings.unit}
                   </T>
                 </Animated.View>
               </>
             )}
           </View>
-          <View style={[styles.pill, SHADOW_SM, { backgroundColor: p.night ? SURFACE : 'rgba(255,255,255,0.86)' }]}>
+          <View style={[styles.pill, SHADOW_SM, { backgroundColor: p.night ? c.surface : 'rgba(255,255,255,0.86)' }]}>
             <T v="label">{diff >= 0 ? t('left', { n: n(diff) }) : t('over', { n: n(-diff) })}</T>
           </View>
           {pending > 0 && (
             <Animated.View entering={FadeIn} style={styles.pending}>
-              <T v="small" color={INK_SOFT}>
+              <T v="small" color={c.inkSoft}>
                 {t('pending', { n: pending })}
               </T>
             </Animated.View>
           )}
           {p.note ? (
-            <T v="small" color={INK_SOFT} style={styles.pending}>
+            <T v="small" color={c.inkSoft} style={styles.pending}>
               {p.note}
             </T>
           ) : null}
         </View>
         {p.hint ? (
-          <Animated.View key={p.hint.dir} entering={FadeIn.duration(300)} exiting={FadeOut.duration(200)} style={[styles.hint, SHADOW_SM]}>
-            <ChevronIcon size={16} dir={p.hint.dir} color={INK_SOFT} />
-            <T v="small" color={INK_SOFT}>
+          <Animated.View key={p.hint.dir} entering={FadeIn.duration(300)} exiting={FadeOut.duration(200)} style={[styles.hint, SHADOW_SM, { backgroundColor: c.surfaceSoft }]}>
+            <ChevronIcon size={16} dir={p.hint.dir} color={c.inkSoft} />
+            <T v="small" color={c.inkSoft}>
               {p.hint.text}
             </T>
           </Animated.View>

@@ -32,7 +32,7 @@ const PALETTES: Record<Biome, Palette> = {
   tropical: { ground: 0x7fcf7a, trunk: 0xa47a52, foliage: [0x3fae63, 0x59c272, 0x2f9d58], accent: [0xff6f61, 0xffc93c, 0xff8fab], particle: 0xfff6c8, particleKind: 'float', fog: 0xdaebb6 },
 };
 
-const NIGHT_FOG = 0xece8f3;
+const NIGHT_FOG = 0x2b2756; // the page's night indigo, so the horizon melts into it
 const SICK = new THREE.Color(0xb7a24a); // what foliage turns to past the goal
 const SICK_GROUND = new THREE.Color(0xb9a97c);
 
@@ -111,6 +111,9 @@ const R = 20;
 const STEP = 0.96;
 /** Where the camera looks (height at z = −1.5): lower puts the horizon higher in the band. */
 const LOOK_Y = 0.3;
+/** The camera's horizontal field of view; the vertical one follows the band's shape, so a taller band shows more sky, not bigger trees. */
+const HFOV = 31.4;
+const vfov = (aspect: number) => (2 * Math.atan(Math.tan((HFOV * Math.PI) / 360) / aspect) * 180) / Math.PI;
 
 function hills(x: number, z: number) {
   return 0.16 * Math.sin(x * 0.55 + 1.3) * Math.cos(z * 0.45) + 0.09 * Math.sin(x * 1.3 + z * 0.9);
@@ -296,7 +299,7 @@ export class ForestScene {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.04;
 
-    this.camera = new THREE.PerspectiveCamera(34, width / height, 0.1, 60);
+    this.camera = new THREE.PerspectiveCamera(vfov(width / height), width / height, 0.1, 60);
     // close and pitched down a little, so the trees stand above the chips and
     // bar that float over the lower third of the band
     this.camera.position.set(0, 2.0, 6.4);
@@ -525,6 +528,7 @@ export class ForestScene {
   resize(width: number, height: number) {
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
+    this.camera.fov = vfov(this.camera.aspect);
     this.camera.updateProjectionMatrix();
   }
 
@@ -1020,9 +1024,9 @@ export class ForestScene {
 
     // light: warm sun by day, cool moon by night
     const nightK = this.night ? 1 : 0;
-    this.sun.intensity += ((this.night ? 0.55 : 1.7) - this.sun.intensity) * Math.min(1, dt * 3);
+    this.sun.intensity += ((this.night ? 0.75 : 1.45) - this.sun.intensity) * Math.min(1, dt * 3);
     this.sun.color.lerp(new THREE.Color(this.night ? 0xb9c6ff : 0xffe8bf), Math.min(1, dt * 3));
-    this.hemi.intensity += ((this.night ? 0.4 : 0.7) - this.hemi.intensity) * Math.min(1, dt * 3);
+    this.hemi.intensity += ((this.night ? 0.55 : 1.05) - this.hemi.intensity) * Math.min(1, dt * 3);
     this.hemi.color.lerp(new THREE.Color(this.night ? 0x9aa8ff : 0xfff4dc), Math.min(1, dt * 3));
     // by night the sun's sprite becomes a small pale moon
     const sunMat = this.sunSprite.material as THREE.SpriteMaterial;

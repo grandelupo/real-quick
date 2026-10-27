@@ -1,8 +1,9 @@
 // The Real Quick look: one calm pastel world per weekday, soft "clay"
 // surfaces (depth from gradients and shadows, never outlines), one soft-3D
-// object per day, and a quiet off-white night sheet. The app is fully
-// branded — it ignores the system light/dark setting and follows the clock
-// (see engine/days.ts isNight).
+// object per day, and a deep indigo night after 20:00 (dark surfaces, light
+// ink, the forest in moonlight). The app is fully branded — it ignores the
+// system light/dark setting and follows the clock (see engine/days.ts
+// isNight); sheets stay paper-white at night like system sheets.
 
 export const INK = '#2B2350';
 export const INK_SOFT = 'rgba(43,35,80,0.60)';
@@ -10,8 +11,16 @@ export const INK_FAINT = 'rgba(43,35,80,0.10)';
 export const INK_HAIR = 'rgba(43,35,80,0.07)';
 export const PAPER = '#FFFDF9';
 export const SURFACE = '#FFFFFF';
-export const NIGHT_BG = '#F7F5F2';
-export const NIGHT_DEEP = '#ECE8F3';
+export const NIGHT_BG = '#1F1C3A';
+export const NIGHT_DEEP = '#2B2756';
+/** The page's night colours (ui/night.tsx hands them out). */
+export const NIGHT = {
+  ink: '#F3F0FF',
+  inkSoft: 'rgba(243,240,255,0.62)',
+  hair: 'rgba(255,255,255,0.10)',
+  surface: '#312C5C',
+  surfaceSoft: 'rgba(49,44,92,0.88)',
+} as const;
 export const BLUSH = '#FF9EB5';
 export const BLUSH_DEEP = '#F77F9F';
 

@@ -3,6 +3,8 @@ import { Pressable, StyleSheet, Text, type PressableProps, type StyleProp, type 
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { FONT, INK } from '../theme';
+import { useNight } from './night';
+import { NIGHT } from '../theme';
 import { getState } from '../store';
 import { TIMING_FAST } from './motion';
 
@@ -21,8 +23,9 @@ const V: Record<Variant, TextStyle> = {
   button: { fontFamily: FONT.displayMedium, fontSize: 17, lineHeight: 22 },
 };
 
-export function T({ v = 'body', style, color = INK, ...rest }: TextProps & { v?: Variant; color?: string }) {
-  return <Text {...rest} style={[V[v], { color, fontVariant: ['tabular-nums'] }, style]} />;
+export function T({ v = 'body', style, color, ...rest }: TextProps & { v?: Variant; color?: string }) {
+  const night = useNight();
+  return <Text {...rest} style={[V[v], { color: color ?? (night ? NIGHT.ink : INK), fontVariant: ['tabular-nums'] }, style]} />;
 }
 
 export type HapticKind = 'light' | 'medium' | 'success' | 'warning' | 'none';

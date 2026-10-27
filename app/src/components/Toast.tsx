@@ -5,6 +5,7 @@ import { INK, INK_FAINT, INK_SOFT, SHADOW, SURFACE } from '../theme';
 import { EASE_OUT } from '../ui/motion';
 import { CheckIcon } from '../ui/Icons';
 import { Pressy, T } from '../ui/kit';
+import { usePageColors } from '../ui/night';
 
 export interface ToastMsg {
   text: string;
@@ -27,6 +28,7 @@ export function useToast() {
 }
 
 export function Toast({ msg, bottom }: { msg: (ToastMsg & { key: number }) | null; bottom: number }) {
+  const c = usePageColors();
   if (!msg) return null;
   return (
     <View style={[styles.wrap, { bottom }]} pointerEvents="box-none">
@@ -34,16 +36,16 @@ export function Toast({ msg, bottom }: { msg: (ToastMsg & { key: number }) | nul
         key={msg.key}
         entering={FadeInDown.duration(260).easing(EASE_OUT)}
         exiting={FadeOutDown.duration(180)}
-        style={[styles.toast, SHADOW]}
+        style={[styles.toast, SHADOW, { backgroundColor: c.surface }]}
         accessibilityLiveRegion="polite"
       >
         <View style={styles.mark}>
-          <CheckIcon size={18} color={INK} />
+          <CheckIcon size={18} color={c.ink} />
         </View>
         <View style={{ flex: 1 }}>
           <T v="label">{msg.text}</T>
           {msg.sub ? (
-            <T v="small" color={INK_SOFT}>
+            <T v="small" color={c.inkSoft}>
               {msg.sub}
             </T>
           ) : null}

@@ -84,7 +84,7 @@ export const DEFAULT_SETTINGS: Settings = {
   unit: 'kcal',
   partnerName: '',
   shareName: '',
-  nightLook: true,
+  nightLook: false,
   haptics: true,
   imperial: false,
 };
