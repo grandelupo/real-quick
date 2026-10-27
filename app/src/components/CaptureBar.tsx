@@ -2,8 +2,6 @@ import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef,
 import { BackHandler, Image, Linking, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import Animated, {
-  FadeIn,
-  FadeOut,
   LinearTransition,
   interpolate,
   runOnJS,
@@ -13,13 +11,11 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { isButtonCollapsed } from '../engine';
 import { t } from '../i18n';
 import { storeCapture } from '../photos';
-import { addEntry, newId, useStore } from '../store';
-import { ABS, BLUSH_DEEP, FONT, INK, INK_SOFT, SHADOW, SURFACE } from '../theme';
+import { addEntry, newId } from '../store';
+import { ABS, FONT, INK, INK_SOFT, SHADOW, SURFACE } from '../theme';
 import { CameraIcon, CloseIcon } from '../ui/Icons';
 import { EASE_IN_OUT, EASE_OUT, TIMING_SLOW } from '../ui/motion';
 import { Pressy, T, haptic } from '../ui/kit';
@@ -58,8 +54,6 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
   const [busy, setBusy] = useState(false);
   const [flyUri, setFlyUri] = useState<string | null>(null);
   const pendingAuto = useRef<null | { fromWidget: boolean }>(null);
-  const snaps = useStore((s) => s.totalSnaps - s.buttonResetAt);
-  const collapsed = isButtonCollapsed(snaps);
 
   const granted = perm?.granted === true;
 
@@ -212,7 +206,7 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
         layout={LinearTransition.duration(260).easing(EASE_OUT)}
         style={[
           styles.bar,
-          { bottom, left: SIDE + PREVIEW + GAP, right: collapsed ? undefined : SIDE },
+          { bottom, left: SIDE + PREVIEW + GAP, right: SIDE },
         ]}
       >
         <Pressy
@@ -220,29 +214,20 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
           hapticKind="none"
           accessibilityLabel={t('snapA11y')}
           testID="snap-button"
-          style={[styles.button, collapsed ? [styles.buttonSmall, styles.buttonSmallShadow] : [styles.buttonBig, SHADOW], busy && { opacity: 0.85 }]}
+          style={[styles.button, styles.buttonBig, SHADOW, busy && { opacity: 0.85 }]}
         >
-          {collapsed ? (
-            <Animated.View key="icon" entering={FadeIn.duration(250)} exiting={FadeOut.duration(120)} style={StyleSheet.absoluteFill}>
-              <LinearGradient colors={['#FFB7C9', '#FF93AE']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={[StyleSheet.absoluteFill, styles.center]}>
-                <View style={styles.smallEdge} pointerEvents="none" />
-                <CameraIcon size={32} color={INK} stroke={2.2} />
-              </LinearGradient>
-            </Animated.View>
-          ) : (
-            <Animated.View key="label" entering={FadeIn.duration(250)} exiting={FadeOut.duration(120)} style={styles.labelWrap}>
-              <View style={styles.edge} pointerEvents="none" />
-              <T v="button" style={styles.label}>
-                {t('ctaPrefix')}{' '}
-              </T>
-              <View style={styles.inlineIcon}>
-                <CameraIcon size={21} color={INK} stroke={2.3} />
-              </View>
-              <T v="button" style={styles.label}>
-                {' '}{t('ctaSuffix')}
-              </T>
-            </Animated.View>
-          )}
+          <View style={styles.labelWrap}>
+            <View style={styles.edge} pointerEvents="none" />
+            <T v="button" style={styles.label}>
+              {t('ctaPrefix')}{' '}
+            </T>
+            <View style={styles.inlineIcon}>
+              <CameraIcon size={21} color={INK} stroke={2.3} />
+            </View>
+            <T v="button" style={styles.label}>
+              {' '}{t('ctaSuffix')}
+            </T>
+          </View>
         </Pressy>
       </Animated.View>
 
@@ -312,10 +297,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   buttonBig: { paddingHorizontal: 14 },
-  buttonSmall: { width: BAR_HEIGHT - 8, borderRadius: 34 },
-  buttonSmallShadow: { shadowColor: BLUSH_DEEP, shadowOpacity: 0.45, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
   edge: { ...ABS, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.9)', borderBottomColor: 'rgba(43,35,80,0.05)' },
-  smallEdge: { ...ABS, borderRadius: 34, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.55)', borderBottomColor: 'rgba(255,255,255,0.1)' },
   labelWrap: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   label: { fontFamily: FONT.displayMedium, fontSize: 16, lineHeight: 21, textAlign: 'center' },
   inlineIcon: { marginTop: -2 },

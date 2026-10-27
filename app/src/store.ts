@@ -13,8 +13,6 @@ export interface State {
   entries: Entry[];
   /** Lifetime snaps; the big button collapses after a few (engine/days.ts). */
   totalSnaps: number;
-  /** Set when the user asks for the big button back. */
-  buttonResetAt: number;
   /** Gestures the user has performed at least once; the hints stop afterwards. */
   seen: { scroll: boolean; notes: boolean };
   isPro: boolean;
@@ -35,7 +33,6 @@ let state: State = {
   settings: DEFAULT_SETTINGS,
   entries: [],
   totalSnaps: 0,
-  buttonResetAt: 0,
   seen: { scroll: false, notes: false },
   isPro: false,
   installId: '',
@@ -165,8 +162,7 @@ export async function eraseAll() {
     settings: DEFAULT_SETTINGS,
     entries: [],
     totalSnaps: 0,
-    buttonResetAt: 0,
-    seen: { scroll: false, notes: false },
+      seen: { scroll: false, notes: false },
     isPro: state.isPro, // a subscription belongs to the Apple/Google account, not this data
     installId,
     firstDay: dayKey(new Date()),

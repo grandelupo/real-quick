@@ -6,7 +6,7 @@ import { n, t } from '../i18n';
 import { manageSubscriptions, restore } from '../iap';
 import { LINKS } from '../links';
 import { deleteAllPhotos } from '../photos';
-import { eraseAll, setSettings, setState, useStore } from '../store';
+import { eraseAll, setSettings, useStore } from '../store';
 import { BLUSH, INK, INK_FAINT, INK_SOFT } from '../theme';
 import { Pressy, T } from '../ui/kit';
 import { Button, SectionTitle, Segmented, Stepper, ToggleRow } from '../ui/controls';
@@ -129,11 +129,6 @@ export function SettingsSheet({ visible, onClose, onPaywall, onShare }: { visibl
       <View style={{ height: 12 }} />
       <ToggleRow label={t('nightLook')} value={settings.nightLook} onChange={(nightLook) => setSettings({ nightLook })} />
       <ToggleRow label={t('haptics')} value={settings.haptics} onChange={(haptics) => setSettings({ haptics })} />
-      <Pressy onPress={() => setState((s) => ({ buttonResetAt: s.totalSnaps }))} style={styles.link} hapticKind="light">
-        <T v="label" color={INK_SOFT}>
-          {t('bigButton')} →
-        </T>
-      </Pressy>
 
       <SectionTitle>{t('widgets')}</SectionTitle>
       <T v="small" color={INK_SOFT}>

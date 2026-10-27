@@ -64,13 +64,6 @@ export function msUntilLookChange(d: Date): number {
   return Math.max(1000, next.getTime() - d.getTime());
 }
 
-/** The big "click to snap" button shrinks to an icon once the user clearly knows it. */
-export const COLLAPSE_AFTER_SNAPS = 5;
-
-export function isButtonCollapsed(totalSnaps: number): boolean {
-  return totalSnaps >= COLLAPSE_AFTER_SNAPS;
-}
-
 /** Free snaps per local day; Pro is unlimited (the gateway enforces both). */
 export const FREE_AI_PER_DAY = 3;
 

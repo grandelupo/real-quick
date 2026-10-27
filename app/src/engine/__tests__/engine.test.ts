@@ -1,6 +1,5 @@
 import { freeDaysLeft, TRIAL_DAYS,
   BIAS_MULTIPLIER,
-  COLLAPSE_AFTER_SNAPS,
   addDays,
   bmr,
   clampGoal,
@@ -10,7 +9,6 @@ import { freeDaysLeft, TRIAL_DAYS,
   dayTotals,
   daysBetween,
   entryMacros,
-  isButtonCollapsed,
   isNight,
   macroTargets,
   msUntilLookChange,
@@ -132,11 +130,6 @@ describe('days', () => {
     expect(msUntilLookChange(at)).toBe(60 * 60 * 1000);
     const late = new Date(2026, 9, 26, 22, 0);
     expect(msUntilLookChange(late)).toBe(8 * 60 * 60 * 1000);
-  });
-
-  test('button collapses after enough snaps', () => {
-    expect(isButtonCollapsed(COLLAPSE_AFTER_SNAPS - 1)).toBe(false);
-    expect(isButtonCollapsed(COLLAPSE_AFTER_SNAPS)).toBe(true);
   });
 });
 
