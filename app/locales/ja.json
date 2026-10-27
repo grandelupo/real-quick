@@ -1,4 +1,9 @@
 {
-  "CFBundleDisplayName": "Real Quick",
-  "NSCameraUsageDescription": "Real Quick はカメラで食事を撮影し、カロリーを計算します。"
+  "ios": {
+    "CFBundleDisplayName": "Real Quick",
+    "NSCameraUsageDescription": "Real Quick はカメラで食事を撮影し、カロリーを計算します。"
+  },
+  "android": {
+    "app_name": "Real Quick"
+  }
 }
