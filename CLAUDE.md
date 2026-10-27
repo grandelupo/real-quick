@@ -75,6 +75,23 @@ pass `-allowProvisioningUpdates -authenticationKeyPath <ASC_KEY_PATH>
 from `app-builder/.env` to `-exportArchive`. The archive itself still signs
 through the Xcode account.
 
+## OTA updates (EAS Update)
+
+- `expo-updates` is in, channel **production** for store builds (EAS builds
+  get it from `eas.json`; local xcodebuild archives from
+  `updates.requestHeaders` in `app.json`), runtime version policy
+  **fingerprint**: an update only reaches builds whose native fingerprint
+  matches, so JS-only changes are safe and anything touching native modules
+  needs new store builds.
+- Ship a JS fix: commit, then `cd app && npx eas-cli@latest update --channel
+  production --message "…" --non-interactive`. Users get it on the next cold
+  launch after the download (ON_LOAD, no wait at start-up). `eas update:list
+  --channel production` shows what is live; `eas update:republish` rolls back
+  to an earlier one.
+- Before a native change (new Expo module, SDK bump, app.json plugin change)
+  build both stores again; the fingerprint changes and old binaries stop
+  receiving updates meant for the new one — on purpose.
+
 ## Google Play
 
 - Access: service account `claude@gen-lang-client-0618281966.iam.gserviceaccount.com`
