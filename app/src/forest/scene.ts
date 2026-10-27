@@ -205,9 +205,9 @@ export class ForestScene {
     this.renderer.setSize(width, height, false);
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 0.98;
+    this.renderer.toneMappingExposure = 1.04;
 
     this.camera = new THREE.PerspectiveCamera(34, width / height, 0.1, 60);
     // close and pitched down a little, so the trees stand above the chips and
@@ -215,12 +215,12 @@ export class ForestScene {
     this.camera.position.set(0, 2.0, 6.4);
     this.camera.lookAt(0, LOOK_Y, -1.5);
 
-    this.fog = new THREE.Fog(PALETTES.meadow.fog, 9, 21);
+    this.fog = new THREE.Fog(PALETTES.meadow.fog, 10, 24);
     this.scene.fog = this.fog;
 
-    this.hemi = new THREE.HemisphereLight(0xfff4dc, 0x9fb08a, 0.7);
+    this.hemi = new THREE.HemisphereLight(0xfff4dc, 0x9fb08a, 0.85);
     this.scene.add(this.hemi);
-    this.sun = new THREE.DirectionalLight(0xffe8bf, 1.7);
+    this.sun = new THREE.DirectionalLight(0xffe8bf, 1.45);
     this.sun.position.set(-4.5, 6.5, 2.5);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(1024, 1024);
@@ -231,9 +231,13 @@ export class ForestScene {
     this.sun.shadow.camera.near = 1;
     this.sun.shadow.camera.far = 25;
     this.sun.shadow.bias = -0.0015;
-    this.sun.shadow.radius = 4;
+    this.sun.shadow.radius = 6;
     this.scene.add(this.sun);
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.06));
+    // a cool fill from the viewer's side rounds the shapes off
+    const fill = new THREE.DirectionalLight(0xd6e4ff, 0.3);
+    fill.position.set(4, 3, 7);
+    this.scene.add(fill);
 
     // the sun itself, and a few soft rays leaning into the scene
     this.sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.dot, color: 0xfff3c8, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -252,7 +256,10 @@ export class ForestScene {
     }
 
     // ground: the planet, gentle hills on it, fading out towards the horizon so the page shows through
-    const geo = new THREE.SphereGeometry(R, 96, 72);
+    const geo = new THREE.SphereGeometry(R, 160, 112);
+    // poles to the sides: a UV sphere's converging triangles would otherwise
+    // sit right under the camera and show as creases in the ground
+    geo.rotateZ(Math.PI / 2);
     const pos = geo.attributes.position as THREE.BufferAttribute;
     const v = new THREE.Vector3();
     for (let i = 0; i < pos.count; i++) {
@@ -264,7 +271,7 @@ export class ForestScene {
     }
     geo.computeVertexNormals();
     this.scene.add(this.planet);
-    this.groundMat = new THREE.MeshStandardMaterial({ color: PALETTES.meadow.ground, flatShading: true, roughness: 0.95, metalness: 0, transparent: true });
+    this.groundMat = new THREE.MeshStandardMaterial({ color: PALETTES.meadow.ground, flatShading: false, roughness: 0.95, metalness: 0, transparent: true });
     this.groundMat.onBeforeCompile = (shader) => {
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', '#include <common>\nvarying float vFade;')
@@ -511,7 +518,8 @@ export class ForestScene {
   }
 
   private std(color: number, extra: Partial<THREE.MeshStandardMaterialParameters> = {}) {
-    const m = new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.85, metalness: 0, ...extra });
+    // smooth, matte, no facets: the clay look of the rest of the app
+    const m = new THREE.MeshStandardMaterial({ color, flatShading: false, roughness: 0.92, metalness: 0, ...extra });
     m.userData.base = new THREE.Color(color);
     return m;
   }
@@ -522,7 +530,7 @@ export class ForestScene {
     const trunkMat = this.std(pal.trunk);
     const pickF = () => pal.foliage[Math.floor(r() * pal.foliage.length)];
     if (biome === 'winter') {
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.11, 0.6, 6), trunkMat);
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.11, 0.6, 14), trunkMat);
       trunk.position.y = 0.3;
       group.add(trunk);
       const tiers = 3;
@@ -532,10 +540,10 @@ export class ForestScene {
         const y = 0.55 + i * 0.5;
         const m = this.std(pickF());
         mats.push(m);
-        const cone = new THREE.Mesh(new THREE.ConeGeometry(rad, h, 7), m);
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(rad, h, 18), m);
         cone.position.y = y + h / 2;
         group.add(cone);
-        const snow = new THREE.Mesh(new THREE.ConeGeometry(rad * 0.72, h * 0.35, 7), this.std(0xffffff, { roughness: 1 }));
+        const snow = new THREE.Mesh(new THREE.ConeGeometry(rad * 0.72, h * 0.35, 18), this.std(0xffffff, { roughness: 1 }));
         snow.position.y = y + h - h * 0.35 / 2 + 0.01;
         group.add(snow);
       }
@@ -543,7 +551,7 @@ export class ForestScene {
       let y = 0;
       let x = 0;
       for (let i = 0; i < 6; i++) {
-        const seg = new THREE.Mesh(new THREE.CylinderGeometry(0.09 - i * 0.005, 0.11 - i * 0.005, 0.44, 6), trunkMat);
+        const seg = new THREE.Mesh(new THREE.CylinderGeometry(0.09 - i * 0.005, 0.11 - i * 0.005, 0.44, 14), trunkMat);
         seg.position.set(x, y + 0.22, 0);
         seg.rotation.z = -0.08 * i;
         group.add(seg);
@@ -553,7 +561,7 @@ export class ForestScene {
       const leafMat = this.std(pickF(), { side: THREE.DoubleSide });
       mats.push(leafMat);
       for (let i = 0; i < 7; i++) {
-        const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.2, 1.6, 6), leafMat);
+        const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.2, 1.6, 12), leafMat);
         leaf.scale.z = 0.45;
         const a = (i / 7) * Math.PI * 2 + 0.3;
         leaf.position.set(x + Math.cos(a) * 0.58, y - 0.12, Math.sin(a) * 0.58);
@@ -562,35 +570,36 @@ export class ForestScene {
       }
       const coco = this.std(0x6b4a33);
       for (let i = 0; i < 3; i++) {
-        const c = new THREE.Mesh(new THREE.IcosahedronGeometry(0.09, 0), coco);
+        const c = new THREE.Mesh(new THREE.IcosahedronGeometry(0.09, 2), coco);
         c.position.set(x + Math.cos(i * 2.1) * 0.12, y - 0.1, Math.sin(i * 2.1) * 0.12);
         group.add(c);
       }
     } else if (biome === 'golden') {
       // a flat-topped acacia
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 1.3, 6), trunkMat);
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 1.3, 14), trunkMat);
       trunk.position.y = 0.65;
       group.add(trunk);
       const m = this.std(pickF());
       mats.push(m);
-      const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.55, 0.42, 9), m);
+      const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.55, 0.42, 20), m);
       crown.position.y = 1.5;
       group.add(crown);
       const m2 = this.std(pickF());
       mats.push(m2);
-      const crown2 = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.3, 0.3, 8), m2);
+      const crown2 = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.3, 0.3, 20), m2);
       crown2.position.set(0.25, 1.85, 0.1);
       group.add(crown2);
     } else {
       // round deciduous tree: trunk + three canopy lobes
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.12, 0.95, 6), trunkMat);
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.12, 0.95, 14), trunkMat);
       trunk.position.y = 0.47;
       group.add(trunk);
       const lobes: [number, number, number, number][] = [[0, 1.25, 0, 0.55], [-0.32, 1.05, 0.12, 0.4], [0.3, 1.1, -0.1, 0.42], [0.02, 1.6, 0.02, 0.36]];
       for (const [x, y, z, s] of lobes) {
         const m = this.std(pickF());
         mats.push(m);
-        const lobe = new THREE.Mesh(new THREE.IcosahedronGeometry(s, 1), m);
+        const lobe = new THREE.Mesh(new THREE.IcosahedronGeometry(s, 3), m);
+        lobe.scale.y = 0.88;
         lobe.position.set(x, y, z);
         group.add(lobe);
       }
@@ -604,49 +613,49 @@ export class ForestScene {
     const accent = () => pal.accent[Math.floor(r() * pal.accent.length)];
     const k = r();
     if (biome === 'lavender' && k < 0.75) {
-      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.02, 0.3, 4), this.std(0x6f9a5c));
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.02, 0.3, 10), this.std(0x6f9a5c));
       stem.position.y = 0.15;
       group.add(stem);
       const m = this.std(accent());
       mats.push(m);
-      const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.09, 1), m);
+      const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.09, 3), m);
       head.scale.set(1, 2.4, 1);
       head.position.y = 0.42;
       group.add(head);
     } else if (biome === 'golden' && k < 0.6) {
-      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.024, 0.75, 4), this.std(0x6f9a5c));
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.024, 0.75, 10), this.std(0x6f9a5c));
       stem.position.y = 0.37;
       group.add(stem);
       const m = this.std(0xffd43b);
       mats.push(m);
-      const petals = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.03, 10), m);
+      const petals = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.03, 24), m);
       petals.position.y = 0.76;
       petals.rotation.x = 1.25;
       group.add(petals);
-      const centre = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.04, 10), this.std(0x6b4a2e));
+      const centre = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.04, 24), this.std(0x6b4a2e));
       centre.position.set(0, 0.77, 0.02);
       centre.rotation.x = 1.25;
       group.add(centre);
     } else if (biome === 'winter') {
       const m = this.std(0xffffff, { roughness: 1 });
-      const mound = new THREE.Mesh(new THREE.IcosahedronGeometry(0.16 + r() * 0.14, 1), m);
+      const mound = new THREE.Mesh(new THREE.IcosahedronGeometry(0.16 + r() * 0.14, 3), m);
       mound.scale.y = 0.5;
       group.add(mound);
     } else if (k < 0.45) {
       // flower
-      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.016, 0.32, 4), this.std(0x6f9a5c));
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.016, 0.32, 10), this.std(0x6f9a5c));
       stem.position.y = 0.16;
       group.add(stem);
       const m = this.std(accent());
       mats.push(m);
-      const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.07, 0), m);
+      const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.07, 2), m);
       head.position.y = 0.34;
       group.add(head);
     } else if (k < 0.75) {
       // bush
       const m = this.std(pal.foliage[Math.floor(r() * pal.foliage.length)]);
       mats.push(m);
-      const bush = new THREE.Mesh(new THREE.IcosahedronGeometry(0.24 + r() * 0.12, 1), m);
+      const bush = new THREE.Mesh(new THREE.IcosahedronGeometry(0.24 + r() * 0.12, 3), m);
       bush.scale.y = 0.75;
       bush.position.y = 0.12;
       group.add(bush);
@@ -655,7 +664,7 @@ export class ForestScene {
       const m = this.std(pal.foliage[0]);
       mats.push(m);
       for (let i = 0; i < 3; i++) {
-        const blade = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.32, 4), m);
+        const blade = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.32, 8), m);
         blade.position.set((i - 1) * 0.05, 0.16, 0);
         blade.rotation.z = (i - 1) * 0.25;
         group.add(blade);
@@ -669,7 +678,7 @@ export class ForestScene {
     const m = this.std(0x4f6b3a);
     const mats = [m];
     for (let i = 0; i < 3; i++) {
-      const stalk = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.9 + r() * 0.6, 5), m);
+      const stalk = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.9 + r() * 0.6, 10), m);
       stalk.position.set((r() - 0.5) * 0.3, 0.45, (r() - 0.5) * 0.3);
       stalk.rotation.set((r() - 0.5) * 0.9, 0, (r() - 0.5) * 0.9);
       group.add(stalk);
