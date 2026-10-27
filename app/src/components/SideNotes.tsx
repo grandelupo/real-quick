@@ -11,6 +11,7 @@ import { BLUSH, FONT, INK, INK_FAINT, INK_HAIR, INK_SOFT, SHADOW, SHADOW_SM, SUR
 import { EASE_OUT } from '../ui/motion';
 import { Pressy, T, haptic } from '../ui/kit';
 import { CloseIcon, LockIcon, PencilIcon, PlateIcon, RetryIcon, SendIcon } from '../ui/Icons';
+import { photoSrc } from '../photos';
 
 // The food list: a notebook page that slides in from the right with the
 // day's entries written on its lines. Fix, remove, or just type what you ate.
@@ -51,7 +52,7 @@ function Row({ e, settings, onEdit, onPaywall }: { e: Entry; settings: Settings;
       <Pressy style={styles.row} scaleTo={0.985} onPress={() => onEdit(e)} accessibilityLabel={`${entryTitle(e)}, ${n(toUnit(m.kcal, settings.unit))} ${settings.unit}`}>
         {e.photoUri ? (
           <View style={[styles.print, SHADOW_SM]}>
-            <Image source={{ uri: e.photoUri }} style={styles.thumb} />
+            <Image source={{ uri: photoSrc(e.photoUri) }} style={styles.thumb} />
           </View>
         ) : (
           <View style={styles.mark}>{e.source === 'text' ? <PencilIcon size={18} color={INK_SOFT} /> : <PlateIcon size={20} color={INK_SOFT} />}</View>

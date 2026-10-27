@@ -3,7 +3,7 @@ import { Image, StyleSheet, View } from 'react-native';
 import { entryMacros, toUnit, type Entry, type Settings } from '../engine';
 import { n, t } from '../i18n';
 import { removeEntry, updateEntry } from '../store';
-import { deletePhoto } from '../photos';
+import { deletePhoto, photoSrc } from '../photos';
 import { INK_HAIR, INK_SOFT, MACRO } from '../theme';
 import { T } from '../ui/kit';
 import { Button, Field, SectionTitle, Segmented } from '../ui/controls';
@@ -49,7 +49,7 @@ export function EditSheet({ entry, visible, settings, onClose }: { entry: Entry 
   return (
     <Sheet visible={visible} onClose={onClose}>
       <View style={styles.head}>
-        {entry.photoUri ? <Image source={{ uri: entry.photoUri }} style={styles.photo} /> : null}
+        {entry.photoUri ? <Image source={{ uri: photoSrc(entry.photoUri) }} style={styles.photo} /> : null}
         <View style={{ flex: 1 }}>
           <T v="title" numberOfLines={2}>
             {ready ? `${n(shown)} ${settings.unit}` : t('counting')}
