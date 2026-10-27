@@ -244,6 +244,11 @@ def step_subs(c, app, version) -> None:
             c.delete(f"/subscriptionAppStoreReviewScreenshots/{shot['id']}")
             print(f"  review screenshot had failed ({shot['attributes']['assetDeliveryState'].get('errors')}); re-uploading")
             shot = None
+        if shot and shot["attributes"].get("sourceFileChecksum") not in (None, hashlib.md5(review_png).hexdigest()):
+            # the paywall changed: the old screenshot would mislead the reviewer
+            c.delete(f"/subscriptionAppStoreReviewScreenshots/{shot['id']}")
+            print("  review screenshot is out of date; replacing")
+            shot = None
         if shot:
             print("  review screenshot already set")
         else:
