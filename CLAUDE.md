@@ -84,7 +84,8 @@ through the Xcode account.
   matches, so JS-only changes are safe and anything touching native modules
   needs new store builds.
 - Ship a JS fix: commit, then `cd app && npx eas-cli@latest update --channel
-  production --message "…" --non-interactive`. Users get it on the next cold
+  production --environment production --message "…" --non-interactive`
+  (`--environment` is mandatory in non-interactive mode). Users get it on the next cold
   launch after the download (ON_LOAD, no wait at start-up). `eas update:list
   --channel production` shows what is live; `eas update:republish` rolls back
   to an earlier one.
