@@ -3,10 +3,10 @@ import { StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { t } from '../i18n';
 import { n } from '../i18n';
-import { INK_HAIR, INK_SOFT, MACRO, SHADOW_SM, SURFACE } from '../theme';
+import { INK_HAIR, INK_SOFT, MACRO, SURFACE } from '../theme';
 import { EASE_OUT } from '../ui/motion';
 import { T } from '../ui/kit';
-import { usePageColors } from '../ui/night';
+import { usePageColors, useShadow } from '../ui/night';
 import { useCountUp } from './DayPage';
 
 // Three small chips above the capture bar: protein, carbs, fat against their
@@ -20,9 +20,10 @@ function Chip({ label, value, target, color, night }: { label: string; value: nu
   }, [k, w]);
   const shown = useCountUp(value);
   const c = usePageColors();
+  const shadow = useShadow('sm');
   const fill = useAnimatedStyle(() => ({ width: `${w.value * 100}%` }));
   return (
-    <View style={[styles.chip, SHADOW_SM, { backgroundColor: night ? c.surface : 'rgba(255,255,255,0.9)' }]}>
+    <View style={[styles.chip, shadow, { backgroundColor: night ? c.surface : 'rgba(255,255,255,0.9)' }]}>
       <View style={styles.top}>
         <View style={[styles.dot, { backgroundColor: color }]} />
         <T v="small" color={c.inkSoft} numberOfLines={1} style={{ flex: 1 }}>

@@ -7,7 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { addDays, dayKey, dayPages, dayTotals, freeDaysLeft, isNight, macroTargets, msUntilLookChange, weekdayIndex, type Entry } from '../engine';
 import { dayLabel, t } from '../i18n';
 import { entriesFor, markSeen, setSettings, setState, useStore } from '../store';
-import { DAYS, INK, NIGHT, NIGHT_BG, SHADOW_SM, SURFACE } from '../theme';
+import { DAYS, INK, NIGHT, NIGHT_BG, NIGHT_SHADE, SURFACE, shadowOf } from '../theme';
 import { DayPage } from '../components/DayPage';
 import { MacroStrip } from '../components/MacroStrip';
 import { Forest, type ForestHandle } from '../forest/Forest';
@@ -22,7 +22,7 @@ import { Toast, useToast } from '../components/Toast';
 import { CogIcon, NotesIcon, ShareIcon } from '../ui/Icons';
 import { EASE_OUT, TIMING } from '../ui/motion';
 import { Pressy, T, haptic } from '../ui/kit';
-import { NightContext } from '../ui/night';
+import { NightContext, ShadeContext } from '../ui/night';
 import { Button } from '../ui/controls';
 import { Sheet } from '../components/Sheet';
 
@@ -102,6 +102,9 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   const daysLeft = freeDaysLeft(firstDay, today);
   const locked = !isPro && daysLeft === 0;
   const pc = night ? { ink: NIGHT.ink, surface: NIGHT.surface } : { ink: INK, surface: SURFACE };
+  // the chrome floats over the day page, so it drops that page's colour
+  const shade = night ? NIGHT_SHADE : DAYS[weekdayIndex(viewing)].shade;
+  const chipShadow = shadowOf(shade, 'sm');
   const trialNote = isPro ? undefined : daysLeft === 0 ? t('trialOver') : daysLeft === 1 ? t('trialLastDay') : t('trialDaysLeft', { n: daysLeft });
 
   const capture = useRef<CaptureHandle>(null);
@@ -384,6 +387,7 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
   return (
     <View style={[styles.root, { backgroundColor: night ? NIGHT_BG : DAYS[weekdayIndex(viewing)].bg }]}>
       <NightContext.Provider value={night}>
+        <ShadeContext.Provider value={shade}>
       <StatusBar style={night ? 'light' : 'dark'} />
       <GestureDetector gesture={gestures}>
         <View style={StyleSheet.absoluteFill}>
@@ -406,7 +410,7 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
 
           {/* food-list tab on the right edge: a visible door for the swipe */}
           <Animated.View style={[styles.tab, { top: height * 0.42 }, tabStyle]}>
-            <Pressy onPress={() => setOpen(true)} style={[styles.tabBtn, SHADOW_SM, { backgroundColor: pc.surface }]} accessibilityLabel={t('notesHint')} testID="notes-tab">
+            <Pressy onPress={() => setOpen(true)} style={[styles.tabBtn, chipShadow, { backgroundColor: pc.surface }]} accessibilityLabel={t('notesHint')} testID="notes-tab">
               <NotesIcon size={22} color={pc.ink} />
               {viewingEntries.length > 0 && (
                 <Animated.View entering={FadeIn} style={[styles.badge, { backgroundColor: pc.ink }]}>
@@ -448,10 +452,10 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
 
       {/* top-right: share + settings */}
       <Animated.View style={[styles.topRight, { top: insets.top + 8 }, chromeStyle]} pointerEvents={notesOpen ? 'none' : 'box-none'}>
-        <Pressy style={[styles.roundBtn, SHADOW_SM, { backgroundColor: pc.surface }]} onPress={() => setShareOpen(true)} accessibilityLabel={t('share')} testID="share-button">
+        <Pressy style={[styles.roundBtn, chipShadow, { backgroundColor: pc.surface }]} onPress={() => setShareOpen(true)} accessibilityLabel={t('share')} testID="share-button">
           <ShareIcon size={21} color={pc.ink} />
         </Pressy>
-        <Pressy style={[styles.roundBtn, SHADOW_SM, { backgroundColor: pc.surface }]} onPress={() => setSettingsOpen(true)} accessibilityLabel={t('settings')} testID="settings-button">
+        <Pressy style={[styles.roundBtn, chipShadow, { backgroundColor: pc.surface }]} onPress={() => setSettingsOpen(true)} accessibilityLabel={t('settings')} testID="settings-button">
           <CogIcon size={23} color={pc.ink} />
         </Pressy>
       </Animated.View>
@@ -473,6 +477,7 @@ export function Home({ showPaywallOnMount }: { showPaywallOnMount?: boolean }) {
         />
       </Animated.View>
       <Toast msg={toast.msg} bottom={stripBottom + 62} />
+        </ShadeContext.Provider>
       </NightContext.Provider>
 
       {/* the sheets stay outside the night context: paper-white, like system sheets */}

@@ -7,7 +7,7 @@ import { Hero } from '../art/Hero';
 import { MascotIntro } from './MascotIntro';
 import { dayTotals, toUnit, weekdayIndex, type Entry, type Settings } from '../engine';
 import { n, t } from '../i18n';
-import { DAYS, INK_HAIR, INK_SOFT, MACRO, SHADOW, SHADOW_SM, SURFACE } from '../theme';
+import { DAYS, INK_HAIR, INK_SOFT, MACRO, NIGHT_SHADE, SURFACE, shadowOf } from '../theme';
 import { ChevronIcon } from '../ui/Icons';
 import { EASE_OUT } from '../ui/motion';
 import { T } from '../ui/kit';
@@ -93,6 +93,10 @@ export const DayPage = React.memo(function DayPage(p: DayPageProps) {
   const c = usePageColors();
   const wd = weekdayIndex(p.day);
   const pal = DAYS[wd];
+  // everything on this page drops the page's own colour, not a grey
+  const shade = p.night ? NIGHT_SHADE : pal.shade;
+  const cardShadow = shadowOf(shade, 'lg');
+  const chipShadow = shadowOf(shade, 'sm');
   const totals = dayTotals(p.entries);
   const pending = p.entries.filter((e) => e.status === 'pending').length;
   const kcal = toUnit(totals.kcal, p.settings.unit);
@@ -115,7 +119,7 @@ export const DayPage = React.memo(function DayPage(p: DayPageProps) {
           {p.label}
         </T>
         <View style={styles.middle}>
-          <View style={[styles.disc, SHADOW, { width: ringSize, height: ringSize, borderRadius: ringSize / 2, backgroundColor: p.night ? c.surface : 'rgba(255,255,255,0.92)' }]}>
+          <View style={[styles.disc, cardShadow, { width: ringSize, height: ringSize, borderRadius: ringSize / 2, backgroundColor: p.night ? c.surface : 'rgba(255,255,255,0.92)' }]}>
             {intro ? (
               <MascotIntro
                 size={ringSize * 0.84}
@@ -139,7 +143,7 @@ export const DayPage = React.memo(function DayPage(p: DayPageProps) {
               </>
             )}
           </View>
-          <View style={[styles.pill, SHADOW_SM, { backgroundColor: p.night ? c.surface : 'rgba(255,255,255,0.86)' }]}>
+          <View style={[styles.pill, chipShadow, { backgroundColor: p.night ? c.surface : 'rgba(255,255,255,0.86)' }]}>
             <T v="label">{diff >= 0 ? t('left', { n: n(diff) }) : t('over', { n: n(-diff) })}</T>
           </View>
           {pending > 0 && (
@@ -156,7 +160,7 @@ export const DayPage = React.memo(function DayPage(p: DayPageProps) {
           ) : null}
         </View>
         {p.hint ? (
-          <Animated.View key={p.hint.dir} entering={FadeIn.duration(300)} exiting={FadeOut.duration(200)} style={[styles.hint, SHADOW_SM, { backgroundColor: c.surfaceSoft }]}>
+          <Animated.View key={p.hint.dir} entering={FadeIn.duration(300)} exiting={FadeOut.duration(200)} style={[styles.hint, chipShadow, { backgroundColor: c.surfaceSoft }]}>
             <ChevronIcon size={16} dir={p.hint.dir} color={c.inkSoft} />
             <T v="small" color={c.inkSoft}>
               {p.hint.text}

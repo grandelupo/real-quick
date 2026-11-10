@@ -1,5 +1,5 @@
-import { createContext, useContext } from 'react';
-import { INK, INK_HAIR, INK_SOFT, NIGHT, SURFACE } from '../theme';
+import { createContext, useContext, useMemo } from 'react';
+import { INK, INK_HAIR, INK_SOFT, NIGHT, PLUM, SURFACE, shadowOf, type ShadowSize } from '../theme';
 
 // Whether the page is in its night look. Home provides it around the page
 // (never around the sheets, which stay paper-white like system sheets);
@@ -26,4 +26,22 @@ const NIGHT_COLORS: PageColors = { ink: NIGHT.ink, inkSoft: NIGHT.inkSoft, hair:
 /** The page's colours for the current look. */
 export function usePageColors(): PageColors {
   return useContext(NightContext) ? NIGHT_COLORS : DAY_COLORS;
+}
+
+// What surfaces on this page cast. Home provides the day being viewed, so
+// the chrome floating over the carousel (chips, capture bar, toasts) drops
+// that page's colour. DayPage works its own out from its weekday instead —
+// the carousel holds several at once and each has to cast its own. Sheets
+// get no provider at all: plum on paper.
+
+export const ShadeContext = createContext(PLUM);
+
+export function useShade(): string {
+  return useContext(ShadeContext);
+}
+
+/** The page's shadow, in the page's own colour. */
+export function useShadow(size: ShadowSize = 'lg') {
+  const shade = useShade();
+  return useMemo(() => shadowOf(shade, size), [shade, size]);
 }

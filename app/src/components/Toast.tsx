@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
-import { INK, INK_FAINT, INK_SOFT, SHADOW, SURFACE } from '../theme';
+import { INK, INK_FAINT, INK_SOFT, SURFACE } from '../theme';
 import { EASE_OUT } from '../ui/motion';
 import { CheckIcon } from '../ui/Icons';
 import { Pressy, T } from '../ui/kit';
-import { usePageColors } from '../ui/night';
+import { usePageColors, useShadow } from '../ui/night';
 
 export interface ToastMsg {
   text: string;
@@ -29,6 +29,7 @@ export function useToast() {
 
 export function Toast({ msg, bottom }: { msg: (ToastMsg & { key: number }) | null; bottom: number }) {
   const c = usePageColors();
+  const shadow = useShadow();
   if (!msg) return null;
   return (
     <View style={[styles.wrap, { bottom }]} pointerEvents="box-none">
@@ -36,7 +37,7 @@ export function Toast({ msg, bottom }: { msg: (ToastMsg & { key: number }) | nul
         key={msg.key}
         entering={FadeInDown.duration(260).easing(EASE_OUT)}
         exiting={FadeOutDown.duration(180)}
-        style={[styles.toast, SHADOW, { backgroundColor: c.surface }]}
+        style={[styles.toast, shadow, { backgroundColor: c.surface }]}
         accessibilityLiveRegion="polite"
       >
         <View style={styles.mark}>

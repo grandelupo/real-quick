@@ -15,12 +15,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '../i18n';
 import { storeCapture } from '../photos';
 import { addEntry, newId } from '../store';
-import { ABS, FONT, INK, INK_SOFT, SHADOW, SURFACE } from '../theme';
+import { ABS, FONT, INK, INK_SOFT, SURFACE } from '../theme';
 import { CameraIcon, CloseIcon } from '../ui/Icons';
 import { EASE_IN_OUT, EASE_OUT, TIMING_SLOW } from '../ui/motion';
 import { Pressy, T, haptic } from '../ui/kit';
 import { Hero } from '../art/Hero';
-import { usePageColors } from '../ui/night';
+import { usePageColors, useShadow } from '../ui/night';
 
 // The bottom bar: a live mini camera preview next to one big button. Tap the
 // button and forget it — the photo is taken from the already-running preview
@@ -58,6 +58,7 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
 
   const granted = perm?.granted === true;
   const c = usePageColors();
+  const shadow = useShadow();
 
   // --- geometry of the preview, small ↔ big -----------------------------
   const bottom = Math.max(insets.bottom, 12);
@@ -216,7 +217,7 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
           hapticKind="none"
           accessibilityLabel={t('snapA11y')}
           testID="snap-button"
-          style={[styles.button, styles.buttonBig, SHADOW, { backgroundColor: c.surface }, busy && { opacity: 0.85 }]}
+          style={[styles.button, styles.buttonBig, shadow, { backgroundColor: c.surface }, busy && { opacity: 0.85 }]}
         >
           <View style={styles.labelWrap}>
             <View style={styles.edge} pointerEvents="none" />
@@ -234,7 +235,7 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
       </Animated.View>
 
       {/* the one camera: small next to the button, or big when tapped */}
-      <Animated.View style={[styles.preview, SHADOW, previewStyle]}>
+      <Animated.View style={[styles.preview, shadow, previewStyle]}>
         <Animated.View style={[styles.previewClip, clipStyle]}>
           <Animated.View style={[styles.camBox, { width: large.w, height: large.h }, camStyle]}>
             {granted ? (
@@ -279,7 +280,7 @@ export const CaptureBar = forwardRef<CaptureHandle, Props>(function CaptureBar({
 
       {/* the snapped photo flies off toward the food list */}
       {flyUri && (
-        <Animated.View pointerEvents="none" style={[styles.fly, SHADOW, { left: small.x, top: small.y }, flyStyle]}>
+        <Animated.View pointerEvents="none" style={[styles.fly, shadow, { left: small.x, top: small.y }, flyStyle]}>
           <Image source={{ uri: flyUri }} style={styles.flyImg} />
         </Animated.View>
       )}

@@ -19,6 +19,13 @@ Depth comes from light, not lines. No outlines anywhere in the UI.
 
 - **Surfaces** are white, resting a little above the page: a wide soft
   shadow (`SHADOW` in `theme.ts`), a hairline of light along the top edge.
+- **Shadows are coloured, never black or grey.** A surface drops the hue of
+  the page it is on, deepened — `DayPalette.shade`, reached through
+  `useShadow()` on the page or `shadowOf()` where the weekday is already to
+  hand. On paper (the sheets) it is plum. Android gets these as `boxShadow`
+  and never `elevation`: elevation ignores the colour and draws black, and
+  it tessellates the view outline before blurring, so a big circle like the
+  ring disc casts a visible polygon through its translucent white.
 - **The clay button**: a gentle vertical gradient of the brand blush with a
   light top edge and a shadow tinted in its own colour.
 - **The ring** is a soft tube: a faint inset track, a gradient arc from the
