@@ -166,7 +166,7 @@ export function Paywall({ visible, onClose }: { visible: boolean; onClose(): voi
         </T>
       </View>
 
-      <View style={{ gap: 10, marginTop: 16 }}>
+      <View style={{ gap: 10, marginTop: 18 }}>
         {[t('pwFeature1'), t('pwFeature2'), t('pwFeature3'), t('pwFeature4')].map((f, i) => (
           <View key={i} style={styles.feature}>
             <View style={[styles.tick, { backgroundColor: `${[MACRO.protein, MACRO.carbs, MACRO.fat, BLUSH][i]}33` }]}>
@@ -177,7 +177,7 @@ export function Paywall({ visible, onClose }: { visible: boolean; onClose(): voi
         ))}
       </View>
 
-      <View style={{ marginTop: 22, gap: 10 }}>
+      <View style={{ marginTop: 18, gap: 10 }}>
         {plans === null && <ActivityIndicator color={INK} style={{ marginVertical: 30 }} />}
         {plans !== null && plans.length === 0 && (
           <View style={styles.unavailable}>
@@ -218,9 +218,9 @@ const styles = StyleSheet.create({
   center: { textAlign: 'center' },
   feature: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   tick: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  plan: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 18, borderRadius: 22, backgroundColor: SURFACE },
+  plan: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 16, borderRadius: 20, backgroundColor: SURFACE },
   unavailable: { padding: 18, borderRadius: 20, backgroundColor: INK_FAINT },
-  links: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, paddingHorizontal: 4 },
+  links: { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', columnGap: 20, rowGap: 6 },
   couponRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   couponInput: { flex: 1, height: 46, borderRadius: 14, backgroundColor: INK_HAIR, paddingHorizontal: 14, fontFamily: FONT.displayMedium, fontSize: 16, color: INK },
   couponBtn: { height: 46, paddingHorizontal: 16, borderRadius: 14, backgroundColor: SURFACE, alignItems: 'center', justifyContent: 'center' },

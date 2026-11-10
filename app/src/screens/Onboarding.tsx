@@ -8,7 +8,7 @@ import { Hero } from '../art/Hero';
 import { BIAS_MULTIPLIER, GOAL_MAX, GOAL_MIN, GOAL_STEP, dayKey, toUnit, weekdayIndex, type Bias, type Profile } from '../engine';
 import { n, t } from '../i18n';
 import { setSettings, useStore } from '../store';
-import { DAYS, INK, INK_FAINT, INK_HAIR, INK_SOFT, MACRO, PAPER, SHADOW, SHADOW_SM, SURFACE } from '../theme';
+import { DAYS, INK, INK_FAINT, INK_HAIR, INK_SOFT, MACRO, PAPER, SURFACE, shadowOf } from '../theme';
 import { CameraIcon, ChevronIcon, NotesIcon } from '../ui/Icons';
 import { EASE_OUT, TIMING } from '../ui/motion';
 import { Pressy, T } from '../ui/kit';
@@ -27,11 +27,19 @@ export function Onboarding({ onDone }: { onDone(): void }) {
   const insets = useSafeAreaInsets();
   const settings = useStore((s) => s.settings);
   const [i, setI] = useState(0);
+  // A short step is centred in the card; a long one (the calculator) is not —
+  // centring content taller than the scroll view pushes its top out of reach.
+  const [contentH, setContentH] = useState(0);
+  const [frameH, setFrameH] = useState(0);
+  const overflows = contentH > frameH + 1;
   const [mode, setMode] = useState<'know' | 'calc'>('know');
   const [calc, setCalc] = useState<{ goal: number; profile: Profile } | null>(null);
   const [, requestPerm] = useCameraPermissions();
   const step = STEPS[i];
   const wd = weekdayIndex(dayKey(new Date()));
+  // the card floats on today's page, so it drops today's colour
+  const cardShadow = shadowOf(DAYS[wd].shade, 'lg');
+  const chipShadow = shadowOf(DAYS[wd].shade, 'sm');
 
   const next = () => {
     if (step === 'goal' && mode === 'calc' && calc) setSettings({ goalKcal: calc.goal, profile: calc.profile });
@@ -46,7 +54,7 @@ export function Onboarding({ onDone }: { onDone(): void }) {
     <View style={StyleSheet.absoluteFill}>
       <DayArt weekday={wd} width={width} height={height} night={false} />
       <View style={[styles.top, { paddingTop: insets.top + 10 }]}>
-        <Pressy onPress={back} disabled={i === 0} style={[styles.back, SHADOW_SM, i === 0 && { opacity: 0 }]} accessibilityLabel="Back">
+        <Pressy onPress={back} disabled={i === 0} style={[styles.back, chipShadow, i === 0 && { opacity: 0 }]} accessibilityLabel="Back">
           <ChevronIcon size={22} />
         </Pressy>
         <View style={styles.progressTrack}>
@@ -55,8 +63,14 @@ export function Onboarding({ onDone }: { onDone(): void }) {
         <View style={{ width: 44 }} />
       </View>
 
-      <Animated.View key={step} entering={FadeIn.duration(320).easing(EASE_OUT)} exiting={FadeOut.duration(140)} style={[styles.card, SHADOW, { marginBottom: insets.bottom + 16 }]}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <Animated.View key={step} entering={FadeIn.duration(320).easing(EASE_OUT)} exiting={FadeOut.duration(140)} style={[styles.card, cardShadow, { marginBottom: insets.bottom + 16 }]}>
+        <ScrollView
+          contentContainerStyle={[styles.scroll, !overflows && { justifyContent: 'center' }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          onContentSizeChange={(_, h) => setContentH(h)}
+          onLayout={(e) => setFrameH(e.nativeEvent.layout.height)}
+        >
           {(step === 'hello' || step === 'camera') && (
             <View style={{ alignItems: 'center', marginBottom: 6 }}>
               <Hero kind={step === 'hello' ? DAYS[wd].hero : 'camera'} size={step === 'hello' ? 168 : 128} />
@@ -134,7 +148,7 @@ export function Onboarding({ onDone }: { onDone(): void }) {
                     onPress={() => setSettings({ bias: b })}
                     accessibilityRole="radio"
                     accessibilityState={{ selected: on }}
-                    style={[styles.option, on && [styles.optionOn, SHADOW_SM]]}
+                    style={[styles.option, on && [styles.optionOn, chipShadow]]}
                     scaleTo={0.985}
                   >
                     <View style={{ flex: 1 }}>
@@ -215,7 +229,7 @@ const styles = StyleSheet.create({
   progressTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.7)', overflow: 'hidden' },
   progressFill: { height: 6, borderRadius: 3, backgroundColor: INK },
   card: { flex: 1, marginTop: 18, marginHorizontal: 14, borderRadius: 34, backgroundColor: PAPER, overflow: 'hidden' },
-  scroll: { padding: 24, paddingBottom: 8, flexGrow: 1, justifyContent: 'center' },
+  scroll: { padding: 24, paddingBottom: 8, flexGrow: 1 },
   h: { textAlign: 'center', marginTop: 8 },
   p: { textAlign: 'center', marginTop: 8, marginBottom: 20 },
   option: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, backgroundColor: INK_HAIR, marginBottom: 10 },

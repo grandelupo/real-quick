@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { StyleSheet, Switch, TextInput, View, type LayoutChangeEvent, type TextInputProps } from 'react-native';
+import { StyleSheet, Switch, TextInput, View, type LayoutChangeEvent, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ABS, BLUSH_DEEP, FONT, INK, INK_FAINT, INK_HAIR, INK_SOFT, SHADOW_SM, SURFACE } from '../theme';
+import { ABS, BLUSH_DEEP, FONT, INK, INK_FAINT, INK_HAIR, INK_SOFT, SHADOW_SM, SURFACE, shadowOf } from '../theme';
 import { TIMING } from './motion';
 import { Pressy, T, haptic } from './kit';
+import { ChevronIcon } from './Icons';
 
 // Branded controls: a segmented picker with a sliding white pill, a stepper,
 // a toggle row, a text field and the clay button — enough for every setting.
@@ -14,11 +15,14 @@ export function Segmented<V extends string>({
   value,
   onChange,
   testID,
+  compact,
 }: {
   options: { value: V; label: string; sub?: string }[];
   value: V;
   onChange(v: V): void;
   testID?: string;
+  /** A small one, for a switch that sits beside a section title. */
+  compact?: boolean;
 }) {
   const [w, setW] = useState(0);
   const idx = Math.max(0, options.findIndex((o) => o.value === value));
@@ -28,9 +32,15 @@ export function Segmented<V extends string>({
     transform: [{ translateX: withTiming(idx * segW + 3, TIMING) }],
   }));
   const tall = options.some((o) => o.sub);
+  // One type size for the whole control. `adjustsFontSizeToFit` shrank each
+  // segment on its own — on Android that left "Lose", "Maintain" and "Gain"
+  // at three different sizes — so the longest label sets the size and every
+  // segment uses it. 0.58em is about Plus Jakarta Sans' average advance.
+  const longest = options.reduce((m, o) => Math.max(m, o.label.length), 1);
+  const fontSize = segW > 0 ? Math.max(11, Math.min(14, (segW - 14) / (longest * 0.58))) : 14;
   return (
-    <View style={[styles.seg, tall && { height: 62 }]} onLayout={(e: LayoutChangeEvent) => setW(e.nativeEvent.layout.width)} testID={testID}>
-      {w > 0 && <Animated.View style={[styles.segPill, SHADOW_SM, pill]} />}
+    <View style={[styles.seg, compact && styles.segCompact, tall && { height: 62 }]} onLayout={(e: LayoutChangeEvent) => setW(e.nativeEvent.layout.width)} testID={testID}>
+      {w > 0 && <Animated.View style={[styles.segPill, SHADOW_SM, compact && { borderRadius: 10 }, pill]} />}
       {options.map((o) => (
         <Pressy
           key={o.value}
@@ -44,7 +54,7 @@ export function Segmented<V extends string>({
             onChange(o.value);
           }}
         >
-          <T v="label" color={o.value === value ? INK : INK_SOFT} style={{ textAlign: 'center' }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+          <T v="label" color={o.value === value ? INK : INK_SOFT} style={{ textAlign: 'center', fontSize, lineHeight: fontSize + 4 }} numberOfLines={1}>
             {o.label}
           </T>
           {o.sub ? (
@@ -58,22 +68,55 @@ export function Segmented<V extends string>({
   );
 }
 
-export function Stepper({ value, onChange, step, min, max, format }: { value: number; onChange(v: number): void; step: number; min: number; max: number; format(v: number): string }) {
+/**
+ * A number (or an ordinal choice, with `arrows`) between two round buttons.
+ * The signs are drawn, not typed: the minus sign and the plus glyph have
+ * different weights and optical sizes in Plus Jakarta Sans, so as text they
+ * never looked like a pair.
+ */
+export function Stepper({
+  value,
+  onChange,
+  step,
+  min,
+  max,
+  format,
+  arrows,
+  a11y,
+}: {
+  value: number;
+  onChange(v: number): void;
+  step: number;
+  min: number;
+  max: number;
+  format(v: number): string;
+  /** ‹ › instead of − +, for a named scale rather than a number. */
+  arrows?: boolean;
+  a11y?: [string, string];
+}) {
   const set = (v: number) => {
     const c = Math.min(max, Math.max(min, v));
     if (c !== value) haptic('light');
     onChange(c);
   };
+  const [less, more] = a11y ?? (arrows ? ['Previous', 'Next'] : ['Less', 'More']);
   return (
     <View style={styles.stepper}>
-      <Pressy style={[styles.stepBtn, SHADOW_SM]} onPress={() => set(value - step)} accessibilityLabel="−" hapticKind="none">
-        <T v="title" style={{ lineHeight: 30 }}>−</T>
+      <Pressy style={[styles.stepBtn, SHADOW_SM, value <= min && styles.stepBtnOff]} onPress={() => set(value - step)} accessibilityLabel={less} hapticKind="none">
+        {arrows ? <ChevronIcon size={22} dir="left" /> : <View style={styles.signBar} />}
       </Pressy>
-      <T v="h2" style={{ flex: 1, textAlign: 'center' }}>
+      <T v="h2" style={{ flex: 1, textAlign: 'center' }} numberOfLines={1}>
         {format(value)}
       </T>
-      <Pressy style={[styles.stepBtn, SHADOW_SM]} onPress={() => set(value + step)} accessibilityLabel="+" hapticKind="none">
-        <T v="title" style={{ lineHeight: 30 }}>+</T>
+      <Pressy style={[styles.stepBtn, SHADOW_SM, value >= max && styles.stepBtnOff]} onPress={() => set(value + step)} accessibilityLabel={more} hapticKind="none">
+        {arrows ? (
+          <ChevronIcon size={22} dir="right" />
+        ) : (
+          <>
+            <View style={styles.signBar} />
+            <View style={[styles.signBar, styles.signBarUp]} />
+          </>
+        )}
       </Pressy>
     </View>
   );
@@ -103,11 +146,28 @@ export function Field(props: TextInputProps) {
   return <TextInput placeholderTextColor={INK_SOFT} {...props} style={[styles.field, props.style]} />;
 }
 
-export function SectionTitle({ children }: { children: React.ReactNode }) {
+/**
+ * The little uppercase label over a control. `aside` puts a second control
+ * on the same line (the cm·kg / ft·lb switch), right-aligned and centred on
+ * the label, so the two never need hand-tuned offsets.
+ */
+export function SectionTitle({ children, aside, style }: { children: React.ReactNode; aside?: React.ReactNode; style?: StyleProp<ViewStyle> }) {
+  if (!aside) {
+    return (
+      <View style={[styles.sectionRow, style]}>
+        <T v="small" color={INK_SOFT} style={styles.section}>
+          {children}
+        </T>
+      </View>
+    );
+  }
   return (
-    <T v="small" color={INK_SOFT} style={styles.section}>
-      {children}
-    </T>
+    <View style={[styles.sectionRow, style]}>
+      <T v="small" color={INK_SOFT} style={[styles.section, { flex: 1 }]}>
+        {children}
+      </T>
+      {aside}
+    </View>
   );
 }
 
@@ -136,21 +196,21 @@ export function Button({ label, onPress, kind = 'primary', disabled, testID }: {
 
 const styles = StyleSheet.create({
   seg: { flexDirection: 'row', height: 48, borderRadius: 16, backgroundColor: INK_FAINT, alignItems: 'stretch' },
+  segCompact: { height: 34, borderRadius: 12 },
   segPill: { position: 'absolute', top: 3, bottom: 3, borderRadius: 13, backgroundColor: SURFACE },
   segItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   stepper: { flexDirection: 'row', alignItems: 'center', height: 64, borderRadius: 20, backgroundColor: INK_FAINT, paddingHorizontal: 6 },
   stepBtn: { width: 52, height: 52, borderRadius: 26, backgroundColor: SURFACE, alignItems: 'center', justifyContent: 'center' },
+  stepBtnOff: { opacity: 0.4 },
+  signBar: { position: 'absolute', width: 17, height: 2.6, borderRadius: 2, backgroundColor: INK },
+  signBarUp: { transform: [{ rotate: '90deg' }] },
   toggleRow: { flexDirection: 'row', alignItems: 'center', minHeight: 52 },
   field: { height: 52, borderRadius: 16, backgroundColor: INK_HAIR, paddingHorizontal: 16, fontFamily: FONT.body, fontSize: 16, color: INK },
-  section: { textTransform: 'uppercase', letterSpacing: 1.1, fontSize: 12, marginTop: 24, marginBottom: 10 },
+  sectionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 22, marginBottom: 10 },
+  section: { textTransform: 'uppercase', letterSpacing: 1.1, fontSize: 12 },
   btn: { height: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, overflow: 'hidden' },
-  btnPrimary: {
-    shadowColor: BLUSH_DEEP,
-    shadowOpacity: 0.45,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 6,
-  },
+  // the clay button glows in its own pink; it never casts a grey
+  btnPrimary: shadowOf(BLUSH_DEEP, 'glow'),
   btnEdge: { ...ABS, borderRadius: 18, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.55)', borderBottomColor: 'rgba(255,255,255,0.1)' },
   btnDanger: { backgroundColor: 'rgba(194,51,79,0.07)' },
 });

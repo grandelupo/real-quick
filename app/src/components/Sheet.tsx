@@ -7,6 +7,9 @@ import { INK, PAPER, SHADOW } from '../theme';
 import { TIMING, TIMING_SLOW } from '../ui/motion';
 import { Pressy } from '../ui/kit';
 
+/** The sheet's side margin; it sits on the content, see `pad` below. */
+const SIDE = 22;
+
 // One bottom sheet for everything (edit, settings, paywall). Eases up,
 // drags down to dismiss, dims what's behind it. The content scrolls only
 // when it really overflows the sheet or the keyboard is up; otherwise a
@@ -87,9 +90,14 @@ export function Sheet({
 
   if (!mounted) return null;
 
+  // The sheet's side padding lives on the scrolling content, not on the
+  // sheet: Android clips a child's shadow at the ScrollView's own edge, so a
+  // card flush with that edge loses the sides and bottom of its shadow. With
+  // the padding inside, every card has 22pt of room to cast into.
+  const pad = { paddingHorizontal: SIDE, paddingTop: 2 };
   const body = scroll ? (
     <ScrollView
-      contentContainerStyle={{ paddingBottom: footer ? 12 : insets.bottom + 24 }}
+      contentContainerStyle={{ ...pad, paddingBottom: footer ? 14 : insets.bottom + 24 }}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
       scrollEnabled={scrolls}
@@ -100,7 +108,7 @@ export function Sheet({
       {children}
     </ScrollView>
   ) : (
-    children
+    <View style={pad}>{children}</View>
   );
 
   return (
@@ -118,7 +126,7 @@ export function Sheet({
           <GestureDetector gesture={bodyDrag}>
             <View style={styles.body}>
               {body}
-              {footer ? <View style={{ paddingBottom: Math.max(insets.bottom, 16) }}>{footer}</View> : null}
+              {footer ? <View style={[pad, { paddingTop: 6, paddingBottom: Math.max(insets.bottom, 16) }]}>{footer}</View> : null}
             </View>
           </GestureDetector>
         </Animated.View>
@@ -133,7 +141,6 @@ const styles = StyleSheet.create({
     backgroundColor: PAPER,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
-    paddingHorizontal: 22,
   },
   body: { flexShrink: 1 },
   grabZone: { alignItems: 'center', paddingVertical: 10 },

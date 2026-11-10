@@ -10,6 +10,10 @@ import { useCountUp } from './DayPage';
 // Mifflin–St Jeor with an activity factor and a gentle goal delta — the
 // engine does the maths (engine/nutrition.ts), this is just the form.
 
+/** Sedentary → very active; the stepper walks this order. */
+const ACTIVITIES: Activity[] = ['low', 'light', 'moderate', 'high'];
+const ACTIVITY_KEYS = ['actLow', 'actLight', 'actModerate', 'actHigh'] as const;
+
 export const DEFAULT_PROFILE: Profile = { sex: 'female', age: 32, heightCm: 168, weightKg: 68, activity: 'light', goal: 'maintain' };
 
 export function GoalCalculator({
@@ -72,21 +76,23 @@ export function GoalCalculator({
       />
       <SectionTitle>{t('age')}</SectionTitle>
       <Stepper value={p.age} step={1} min={14} max={99} onChange={(age) => update({ age })} format={(v) => String(v)} />
-      <View style={styles.unitRow}>
-        <View style={{ flex: 1 }}>
-          <SectionTitle>{t('height')}</SectionTitle>
-        </View>
-        <View style={{ width: 200, marginTop: 12 }}>
-          <Segmented
-            value={imperial ? 'imp' : 'met'}
-            onChange={(v) => onImperial(v === 'imp')}
-            options={[
-              { value: 'met', label: 'cm · kg' },
-              { value: 'imp', label: 'ft · lb' },
-            ]}
-          />
-        </View>
-      </View>
+      <SectionTitle
+        aside={
+          <View style={styles.units}>
+            <Segmented
+              value={imperial ? 'imp' : 'met'}
+              onChange={(v) => onImperial(v === 'imp')}
+              options={[
+                { value: 'met', label: 'cm · kg' },
+                { value: 'imp', label: 'ft · lb' },
+              ]}
+              compact
+            />
+          </View>
+        }
+      >
+        {t('height')}
+      </SectionTitle>
       <Stepper
         value={imperial ? Math.round(cmToIn(p.heightCm)) : Math.round(p.heightCm)}
         step={1}
@@ -105,21 +111,23 @@ export function GoalCalculator({
         format={(v) => (imperial ? `${v} lb` : `${v} kg`)}
       />
       <SectionTitle>{t('activity')}</SectionTitle>
-      <Segmented<Activity>
-        value={p.activity}
-        onChange={(activity) => update({ activity })}
-        options={[
-          { value: 'low', label: t('actLow') },
-          { value: 'light', label: t('actLight') },
-          { value: 'moderate', label: t('actModerate') },
-          { value: 'high', label: t('actHigh') },
-        ]}
+      {/* Four sentence-length labels never fit a four-up segmented control —
+          they came out at 11pt with "On my feet a bit" elided. Activity is an
+          ordinal scale anyway, so it reads like the steppers above it. */}
+      <Stepper
+        value={Math.max(0, ACTIVITIES.indexOf(p.activity))}
+        step={1}
+        min={0}
+        max={ACTIVITIES.length - 1}
+        onChange={(i) => update({ activity: ACTIVITIES[i] })}
+        format={(i) => t(ACTIVITY_KEYS[i])}
+        arrows
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  result: { alignItems: 'center', paddingVertical: 8 },
-  unitRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },
+  result: { alignItems: 'center', gap: 2, paddingTop: 4, paddingBottom: 2 },
+  units: { width: 164 },
 });
