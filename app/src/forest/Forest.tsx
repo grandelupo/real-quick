@@ -6,6 +6,17 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming, type SharedValu
 import { ForestScene } from './scene';
 import { EASE_OUT } from '../ui/motion';
 
+// How much of the device's pixel scale the scene is actually drawn at.
+// Android phones are mostly 3x and fill-rate bound, and this band covers
+// well over half the screen: at the full scale it costs 2.25x what 2x does.
+// So the surface is made smaller and the view scales it back up — GLView is
+// a TextureView on Android, so that upscale is a free GPU composite, and in
+// a soft pastel scene with MSAA on there is nothing to see. iPhones draw it
+// at full scale as before.
+const QUALITY = Platform.OS === 'android' ? Math.min(1, 2 / PixelRatio.get()) : 1;
+/** 4x MSAA is most of the bandwidth on a mobile GPU; 2x is enough here. */
+const SAMPLES = Platform.OS === 'android' ? 2 : 4;
+
 // The living forest band at the bottom of the home screen. One GL scene for
 // the whole app: the day's biome, how far it has grown today, whether it has
 // overgrown, and the night look all come in as props and ease over. Changing
@@ -113,9 +124,11 @@ export const Forest = forwardRef<ForestHandle, Props>(function Forest({ width, h
     else stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
+  const gw = Math.round(width * QUALITY);
+  const gh = Math.round(height * QUALITY);
   useEffect(() => {
-    scene.current?.resize(width, height);
-  }, [width, height]);
+    scene.current?.resize(gw, gh);
+  }, [gw, gh]);
 
   // Tilt: the resting pose adapts slowly, so holding the phone at any angle
   // is neutral and only a change of angle moves the camera.
@@ -162,11 +175,11 @@ export const Forest = forwardRef<ForestHandle, Props>(function Forest({ width, h
   return (
     <Animated.View pointerEvents="none" style={[styles.wrap, { width, height }, style, fadeStyle]}>
       <GLView
-        style={{ width, height }}
-        msaaSamples={4}
+        style={QUALITY === 1 ? { width, height } : { width: gw, height: gh, transform: [{ scale: 1 / QUALITY }], transformOrigin: 'top left' }}
+        msaaSamples={SAMPLES}
         onContextCreate={(gl: ExpoWebGLRenderingContext) => {
           try {
-            const s = new ForestScene(gl, width, height, PixelRatio.get());
+            const s = new ForestScene(gl, gw, gh, PixelRatio.get());
             s.setDay(weekday, true);
             s.setGrowth(growth, over);
             s.setNight(night);

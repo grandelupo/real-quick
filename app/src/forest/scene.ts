@@ -189,8 +189,12 @@ function mushroom(group: THREE.Group, scene: ForestScene, rand: () => number, ca
 
 /** One tapered limb, unit size: instanced for every branch segment of a tree. */
 const UNIT_LIMB = new THREE.CylinderGeometry(0.62, 1, 1, 8);
-/** A leaf card: a rounded flat shape, scaled per leaf. */
-const LEAF = new THREE.CircleGeometry(0.5, 7);
+/**
+ * A leaf card: a rounded flat shape, scaled per leaf. Five segments, not
+ * seven — a leaf is a few pixels across, but there are ~2700 of them on
+ * each of fourteen trees, so every triangle here costs about 38k.
+ */
+const LEAF = new THREE.CircleGeometry(0.5, 5);
 
 interface Seg {
   a: THREE.Vector3;
@@ -255,6 +259,13 @@ export class ForestScene {
   private t = 0;
   private last = 0;
   private disposed = false;
+  /** Counts frames so the shadow map is rebuilt on one in three. */
+  private shadowTick = 0;
+  // Scratch colours. frame() used to allocate half a dozen THREE.Colors per
+  // frame; at 60fps that is hundreds of short-lived objects a second for
+  // nothing. These are reused instead — never hold a reference to one.
+  private cA = new THREE.Color();
+  private cB = new THREE.Color();
 
   constructor(private gl: ExpoWebGLRenderingContext, width: number, height: number, pixelRatio: number) {
     // expo-gl's context lacks a few WebGL methods three calls at start-up and
@@ -296,6 +307,11 @@ export class ForestScene {
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // The shadow pass draws every plant a second time. The sun never moves
+    // and the sway is slow, so the map is rebuilt on one frame in three
+    // (see frame()) and the other two skip the pass altogether.
+    this.renderer.shadowMap.autoUpdate = false;
+    this.renderer.shadowMap.needsUpdate = true;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.04;
 
@@ -346,6 +362,9 @@ export class ForestScene {
     }
 
     // ground: the planet, gentle hills on it, fading out towards the horizon so the page shows through
+    // Do not coarsen this. 128x72 saves only 7k triangles and the near hill
+    // in front of the camera is magnified enough that its silhouette turns
+    // into a visible straight crease.
     const geo = new THREE.SphereGeometry(R, 160, 112);
     // poles to the sides: a UV sphere's converging triangles would otherwise
     // sit right under the camera and show as creases in the ground
@@ -796,7 +815,9 @@ export class ForestScene {
     if (spec.snow) {
       // snow resting on the branches
       const snowMat = this.std(0xffffff, { roughness: 1 });
-      const snow = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 8, 6), snowMat, tips.length);
+      // 6x4, not 8x6: one cap is a squashed 3cm blob, and there are ~150
+      // of them on every fir — at 80 triangles each that was 168k a frame.
+      const snow = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 6, 4), snowMat, tips.length);
       tips.forEach((tip, k) => {
         m4.compose(tip.clone().add(V(0, 0.04, 0)), new THREE.Quaternion(), V(0.06 + r() * 0.04, 0.028, 0.05 + r() * 0.04));
         snow.setMatrixAt(k, m4);
@@ -1017,21 +1038,24 @@ export class ForestScene {
     this.shownOver += (over - this.shownOver) * Math.min(1, dt * 2.5);
     // during a roll the ground and the haze mix towards the incoming biome
     const inPal = this.incoming ? PALETTES[this.incoming.biome] : null;
-    const groundTarget = inPal ? new THREE.Color().copy(this.targetGround).lerp(new THREE.Color(inPal.ground), this.k) : this.targetGround.clone();
-    if (inPal) this.fog.color.lerp(new THREE.Color(this.night ? NIGHT_FOG : inPal.fog), this.k * Math.min(1, dt * 3));
+    const groundTarget = this.cA.copy(this.targetGround);
+    if (inPal) {
+      groundTarget.lerp(this.cB.set(inPal.ground), this.k);
+      this.fog.color.lerp(this.cB.set(this.night ? NIGHT_FOG : inPal.fog), this.k * Math.min(1, dt * 3));
+    }
     const g = groundTarget.lerp(SICK_GROUND, this.shownOver * 0.7);
     this.groundMat.color.lerp(g, Math.min(1, dt * 3));
 
     // light: warm sun by day, cool moon by night
     const nightK = this.night ? 1 : 0;
     this.sun.intensity += ((this.night ? 0.75 : 1.45) - this.sun.intensity) * Math.min(1, dt * 3);
-    this.sun.color.lerp(new THREE.Color(this.night ? 0xb9c6ff : 0xffe8bf), Math.min(1, dt * 3));
+    this.sun.color.lerp(this.cB.set(this.night ? 0xb9c6ff : 0xffe8bf), Math.min(1, dt * 3));
     this.hemi.intensity += ((this.night ? 0.55 : 1.05) - this.hemi.intensity) * Math.min(1, dt * 3);
-    this.hemi.color.lerp(new THREE.Color(this.night ? 0x9aa8ff : 0xfff4dc), Math.min(1, dt * 3));
+    this.hemi.color.lerp(this.cB.set(this.night ? 0x9aa8ff : 0xfff4dc), Math.min(1, dt * 3));
     // by night the sun's sprite becomes a small pale moon
     const sunMat = this.sunSprite.material as THREE.SpriteMaterial;
     sunMat.opacity += ((this.night ? 0.42 : 0.7) - sunMat.opacity) * Math.min(1, dt * 3);
-    sunMat.color.lerp(new THREE.Color(this.night ? 0xe3e9ff : 0xfff3c8), Math.min(1, dt * 3));
+    sunMat.color.lerp(this.cB.set(this.night ? 0xe3e9ff : 0xfff3c8), Math.min(1, dt * 3));
     const sunScale = this.night ? 1.9 : 3.4;
     this.sunSprite.scale.x += (sunScale - this.sunSprite.scale.x) * Math.min(1, dt * 3);
     this.sunSprite.scale.y = this.sunSprite.scale.x;
@@ -1086,6 +1110,8 @@ export class ForestScene {
       f.position.y += Math.cos(t * 0.7 + i * 0.8) * 0.003;
     });
 
+    this.shadowTick = (this.shadowTick + 1) % 3;
+    this.renderer.shadowMap.needsUpdate = this.shadowTick === 0;
     this.renderer.render(this.scene, this.camera);
     this.gl.endFrameEXP();
   }
