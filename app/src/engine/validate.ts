@@ -34,7 +34,15 @@ export function sanitizeItem(raw: unknown): FoodItem | null {
   const fat = num(r.fat, 400);
   let kcal = num(r.kcal, 6000);
   // A model that forgets kcal but gives macros still gets counted.
-  if (kcal === 0 && protein + carbs + fat > 0) kcal = protein * 4 + carbs * 4 + fat * 9;
+  const atwater = protein * 4 + carbs * 4 + fat * 9;
+  if (kcal === 0 && atwater > 0) kcal = atwater;
+  // A food cannot hold less energy than its own macros: when the two
+  // disagree that far the kcal is an arithmetic slip, so the macros win.
+  // Only ever upwards — alcohol (7 kcal/g) and sugar alcohols are real
+  // energy the macros do not carry, so kcal above the sum is normal, and
+  // fibre counts as carbs while yielding about half, so the check leaves a
+  // quarter of slack before it fires.
+  if (kcal > 0 && kcal < atwater * 0.75) kcal = atwater;
   const name = text(r.name, '', 60);
   if (!name) return null;
   return {

@@ -3,8 +3,14 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 
 // Photos live on the phone only. A capture is shrunk to 1024 px (enough for
-// the model to read a plate, ~120 KB) and kept in the app's documents folder
+// the model to read a plate, ~230 KB) and kept in the app's documents folder
 // until it has been counted, then a small thumbnail replaces it.
+//
+// The capture is saved at quality 0.82, not 0.62: what a count costs depends
+// on the image's pixel size, not its bytes, so the extra kilobytes are free
+// at the model end, and JPEG mush over a plate is exactly the texture the
+// model needs to tell rice from couscous or see the oil on a fried egg. The
+// thumbnail, which is only ever looked at, stays cheap.
 //
 // Entries keep a *relative* name (`photos/<id>-t.jpg`), never an absolute
 // URI: iOS moves the app container on every install and update, so a stored
@@ -51,7 +57,7 @@ export function photoSrc(ref?: string): string | undefined {
 export async function storeCapture(uri: string, id: string, width?: number, height?: number): Promise<string> {
   const landscape = (width ?? 0) > (height ?? 0);
   const resize = landscape ? { width: MAX_EDGE } : { height: MAX_EDGE };
-  const out = await manipulateAsync(uri, [{ resize }], { compress: 0.62, format: SaveFormat.JPEG, base64: Platform.OS === 'web' });
+  const out = await manipulateAsync(uri, [{ resize }], { compress: 0.82, format: SaveFormat.JPEG, base64: Platform.OS === 'web' });
   if (Platform.OS === 'web') return `data:image/jpeg;base64,${out.base64}`;
   const target = new File(photosDir(), `${id}.jpg`);
   try {

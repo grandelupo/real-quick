@@ -186,6 +186,24 @@ describe('validate', () => {
     expect(sanitizeAnalysis(null).noFood).toBe(true);
   });
 
+  test('kcal below its own macros is an arithmetic slip', () => {
+    // 40g protein + 60g carbs + 20g fat = 580 kcal; 200 is impossible
+    const a = sanitizeAnalysis({ items: [{ name: 'Bowl', kcal: 200, protein: 40, carbs: 60, fat: 20 }] });
+    expect(a.items[0].kcal).toBe(580);
+  });
+
+  test('kcal above its macros is left alone', () => {
+    // a glass of wine: the energy is alcohol, which no macro carries
+    const a = sanitizeAnalysis({ items: [{ name: 'Wine', kcal: 125, protein: 0.1, carbs: 4, fat: 0 }] });
+    expect(a.items[0].kcal).toBe(125);
+  });
+
+  test('fibre-heavy food keeps its own kcal', () => {
+    // 45g carbs of which a third is fibre: 190 is honest, not a slip
+    const a = sanitizeAnalysis({ items: [{ name: 'Lentils', kcal: 190, protein: 15, carbs: 45, fat: 0.7 }] });
+    expect(a.items[0].kcal).toBe(190);
+  });
+
   test('caps item count', () => {
     const many = Array.from({ length: 40 }, (_, i) => ({ name: `i${i}`, kcal: 1 }));
     expect(sanitizeAnalysis({ items: many }).items).toHaveLength(12);
