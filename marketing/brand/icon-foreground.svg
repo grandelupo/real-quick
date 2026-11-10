@@ -1,4 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024"><circle cx="512" cy="512" r="250" fill="#F6C79B" stroke="#2B2350" stroke-width="17.5"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+<!-- Android adaptive-icon foreground. Only the central 66.7% of this
+     canvas is guaranteed visible under the launcher mask, so the pie is
+     scaled to 1.18 (≈61% of the canvas) to sit in it without looking
+     inset. Keep in step with icon-monochrome.svg; render with render.sh. -->
+<g transform="translate(512 512) scale(1.18) translate(-512 -512)"><circle cx="512" cy="512" r="250" fill="#F6C79B" stroke="#2B2350" stroke-width="17.5"/>
 <path transform="translate(11.9 -22.0)" d="M512.0 512.0 L443.4 324.1 A200.0 200.0 0 0 1 707.0 467.5 Z" fill="#FF8E86" stroke="#2B2350" stroke-width="13.8" stroke-linejoin="round"/>
 <path transform="translate(0.0 0.0)" d="M512.0 512.0 L707.0 467.5 A200.0 200.0 0 0 1 354.5 635.3 Z" fill="#FFC9AE" stroke="#2B2350" stroke-width="13.8" stroke-linejoin="round"/>
 <path transform="translate(-0.0 -0.0)" d="M512.0 512.0 L354.5 635.3 A200.0 200.0 0 0 1 443.4 324.1 Z" fill="#FFE08A" stroke="#2B2350" stroke-width="13.8" stroke-linejoin="round"/>
@@ -10,4 +15,5 @@
 <ellipse cx="422.0" cy="634.5" rx="25.0" ry="15.0" fill="#FF6F96" opacity="0.7"/>
 <ellipse cx="559.5" cy="602.0" rx="14.1" ry="18.8" fill="#2B2350"/>
 <ellipse cx="602.0" cy="634.5" rx="25.0" ry="15.0" fill="#FF6F96" opacity="0.7"/>
-<path d="M492.0 632.0 q20.0 25.0 40.0 0" fill="none" stroke="#2B2350" stroke-width="12.5" stroke-linecap="round"/></svg>
+<path d="M492.0 632.0 q20.0 25.0 40.0 0" fill="none" stroke="#2B2350" stroke-width="12.5" stroke-linecap="round"/></g>
+</svg>
