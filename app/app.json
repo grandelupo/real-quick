@@ -96,7 +96,8 @@
             "deploymentTarget": "17.0"
           },
           "android": {
-            "minSdkVersion": 26
+            "minSdkVersion": 26,
+            "enableMinifyInReleaseBuilds": true
           }
         }
       ],

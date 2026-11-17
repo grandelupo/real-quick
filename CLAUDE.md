@@ -125,6 +125,16 @@ through the Xcode account.
   but the app never uses: RECORD_AUDIO (expo-camera), ACTIVITY_RECOGNITION
   (expo-sensors' pedometer — Play's health-app policy would otherwise apply),
   the legacy external-storage pair (expo-file-system). Keep it that way.
+- **R8 is on for Android release builds**
+  (`expo-build-properties` → `android.enableMinifyInReleaseBuilds`), because
+  Play's "Optymalizacja kodu DEX" check fails an app whose obfuscation sits
+  below 25%. `enableShrinkResourcesInReleaseBuilds` stays **off** on purpose:
+  `react-native-android-widget` looks resources up by name at runtime
+  (`ResourceUtils.java`, `getResources().getIdentifier(...)`), and resource
+  shrinking would strip what only a dynamic lookup references. No hand-written
+  keep rules are needed — reanimated, worklets, svg, expo-updates and React
+  Native core all ship theirs as `consumerProguardFiles`. The mapping file
+  travels inside the AAB, so Play de-obfuscates crashes by itself.
 
 Simulators: use the single existing iOS simulator ("Upbell Capture"); never
 create simulators or Android emulators (see app-builder/CLAUDE.md). Android is
